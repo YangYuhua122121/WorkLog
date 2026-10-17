@@ -119,17 +119,13 @@
 
 用户从空闲状态进入：判断本地是否已有项目 → 新建或选择项目 → 启动项目工作 →（暂停 / 继续）→ 填写阶段成果 → 保存落库 → 回到空闲；期间可继续当前项目或取消项目选择后再选项目。具体流转以流程图为准：
 
-
-
-![项目-任务记录业务流程（工时记录）](C:\Users\Youni\AppData\Roaming\Typora\typora-user-images\image-20261017125803106.png)
+![项目-任务记录](D:\HuaweiMoveData\Users\Youni\Desktop\AI\worklog\WorkLog\assets\image-20261017173606036.png)
 
 **2. 数据统计与日志导出流程**
 
 基于已落库的工作记录数据，并行提供三条能力：查看项目数据及项目细节并导出 Excel / 获取数据库 → 工时分配统计看板（甘特 / 扇形）并下载图片 / 数据 → 日志 / 周报 / 月报自动生成（固定模板文本（可配置格式）或 AI 增强文本（可配置 skill））并复制文本。具体流转以流程图为准：
 
-
-
-![数据统计与日志导出流程](C:\Users\Youni\AppData\Roaming\Typora\typora-user-images\image-20261017162802969.png)
+![数据统计与日志导出](D:\HuaweiMoveData\Users\Youni\Desktop\AI\worklog\WorkLog\assets\image-20261017173516880.png)
 
 ### 功能清单
 
