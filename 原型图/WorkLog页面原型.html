@@ -31,10 +31,11 @@
 
   /* ============ 悬浮球（夹子） · 黑白线框 · 两行、宽度随内容自适应 ============ */
   .clip{
-    position:relative; z-index:6; width:fit-content; min-width:118px; max-width:340px;
+    position:relative; z-index:6; width:118px; max-width:340px;
     margin:0 auto; user-select:none; touch-action:none; cursor:grab;
     transition:width .38s cubic-bezier(.2,.8,.2,1), margin-bottom .42s;
   }
+  .clip.is-timing{width:fit-content;}
   .unit.is-open .clip{margin-bottom:-24px; cursor:pointer;}
   .clip__body{
     background:#fff; border:1.5px solid var(--ink); border-radius:9px;
@@ -553,13 +554,18 @@ function selectRowVisual(tr){
 }
 $('#tbody').addEventListener('click',e=>{
   const tr=e.target.closest('tr'); if(!tr||tr.classList.contains('blank'))return;
-  if(state.timerRunning){toast('计时中，无法切换项目');return;}
-  state.selectedId=+tr.dataset.id;
+  const id=+tr.dataset.id;
+  if(state.timerRunning){
+    if(id!==state.timerTaskId)toast('计时中，无法切换项目');
+    return; /* 本项目已选中，无操作；其他项目禁止切换 */
+  }
+  state.selectedId=id;
   selectRowVisual(tr);
 });
 /* 双击 / 停止计时：切到任务标签，重置筛选，将该数据行滚动至字段栏下方并展开详情 */
 function presentDetail(id){
   rememberScroll();
+  setBoardOpen(true);   /* 若板子当前收起（如计时中收起后停止），先展开 */
   state.clampEnabled=false;
   state.proj='全部'; state.pri='全部'; state.status='全部'; state.kw='';
   $('#projFilter').value='全部'; $('#priFilter').value='全部'; $('#statusFilter').value='全部'; $('#searchInput').value='';
@@ -576,11 +582,12 @@ function presentDetail(id){
   if(row)scrollEl.scrollTop=row.offsetTop-headerH;
   openSheet('detail',id);
 }
-/* 双击：将该行滚动至与字段栏接触，并打开项目详细信息面板 */
+/* 双击：将该行滚动至与字段栏接触，并打开项目详细信息面板；计时中仅允许双击本项目 */
 $('#tbody').addEventListener('dblclick',e=>{
   const tr=e.target.closest('tr'); if(!tr||tr.classList.contains('blank'))return;
-  if(state.timerRunning){toast('计时中，无法切换项目');return;}
-  presentDetail(+tr.dataset.id);
+  const id=+tr.dataset.id;
+  if(state.timerRunning && id!==state.timerTaskId){toast('计时中，无法切换项目');return;}
+  presentDetail(id);
 });
 /* 表头排序 */
 document.querySelectorAll('thead th').forEach(th=>{
