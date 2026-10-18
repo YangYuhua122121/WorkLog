@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkLog · 低保真原型（黑白线框）</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='23' rx='2' fill='%23fff' stroke='%23111' stroke-width='1.5'/%3E%3Crect x='9' y='3' width='14' height='6' rx='1.5' fill='%23fff' stroke='%23111' stroke-width='1.4'/%3E%3Ccircle cx='16' cy='6' r='1.4' fill='%23111'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ink:#111; --gray:#666; --line:#8a8a8a; --line2:#c9c9c9; --fill:#f1f1f1; --fill2:#fafafa;
+    --sheet-top:116px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--ink); background:#e9e9e9; min-height:100vh;
+    padding:22px 16px 50px; -webkit-font-smoothing:antialiased;
+  }
+  .stage-head{width:480px;margin:0 auto 12px;text-align:center;color:#555;font-size:13px;}
+  .stage{position:relative;width:480px;margin:0 auto;}
+
+  /* ============ 可拖动单元（夹子 + 板子） ============ */
+  .unit{
+    position:fixed; left:50%; top:6vh; width:480px;
+    transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .unit.is-dragging,.unit.is-moved{transform:none;}
+  .unit.is-dragging .clip{cursor:grabbing;}
+
+  /* ============ 悬浮球（夹子） · 黑白线框 · 两行、宽度随内容自适应 ============ */
+  .clip{
+    position:relative; z-index:6; width:fit-content; min-width:118px; max-width:340px;
+    margin:0 auto; user-select:none; touch-action:none; cursor:grab;
+    transition:width .38s cubic-bezier(.2,.8,.2,1), margin-bottom .42s;
+  }
+  .unit.is-open .clip{margin-bottom:-24px; cursor:pointer;}
+  .clip__body{
+    background:#fff; border:1.5px solid var(--ink); border-radius:9px;
+    padding:8px 15px;
+  }
+  .clip__row1{display:flex; align-items:center; gap:10px;}
+  .clip__spacer{flex:1; min-width:0;}
+  .clip__row2{max-height:0; overflow:hidden; transition:max-height .35s ease, margin-top .35s ease;}
+  .clip.is-timing .clip__row2{max-height:24px; margin-top:5px;}
+  .rec-btn{
+    flex:0 0 auto; width:28px; height:28px; border-radius:50%; border:1.5px solid var(--ink);
+    background:#fff; cursor:pointer; display:grid; place-items:center;
+  }
+  .rec-btn .dot{
+    width:12px;height:12px;border-radius:50%;background:var(--ink);
+    transition:border-radius .3s ease, width .3s ease, height .3s ease;
+  }
+  .clip.is-timing .rec-btn .dot{width:11px;height:11px;border-radius:2px;}
+  .clip__state{font-size:14px;font-weight:600;}
+  .clip__task{
+    display:block; font-size:11.5px; color:#444;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .clip__timer{
+    font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;display:none;
+  }
+  .clip.is-timing .clip__timer{display:block;}
+  /* 秒：「工作中」后三点依次闪烁 */
+  .clip__dots{display:none; gap:3px; margin-left:2px;}
+  .clip__dots span{
+    width:3px; height:3px; border-radius:50%; background:var(--ink);
+    opacity:.25; animation:dotblink 1.4s infinite;
+  }
+  .clip__dots span:nth-child(2){animation-delay:.22s;}
+  .clip__dots span:nth-child(3){animation-delay:.44s;}
+  .clip.is-timing .clip__dots{display:inline-flex;}
+  @keyframes dotblink{0%,55%,100%{opacity:.25;}28%{opacity:1;}}
+  @media (prefers-reduced-motion:reduce){
+    .clip__dots span{animation:none;opacity:.8;}
+  }
+
+  /* ============ 主面板（固定尺寸 · 纵向 A4） ============ */
+  /* A4 纵向 1:1.414 —— 480 × 679 */
+  .board{
+    position:relative; z-index:2; width:480px; height:679px;
+    background:#fff; border:1.5px solid var(--ink); border-radius:6px;
+    display:flex; flex-direction:column; overflow:hidden;
+    transform-origin:top center;
+    transition:height .42s cubic-bezier(.2,.8,.2,1), opacity .32s ease, border-width .32s ease;
+  }
+  /* 收起态：板子高度归零、无边框、透明 */
+  .unit:not(.is-open) .board{height:0; opacity:0; border-width:0; pointer-events:none;}
+  .board__clamp{flex:0 0 8px; background:#fff; border-bottom:1px solid var(--line2);}
+  .board__toolbar{
+    flex:0 0 46px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 14px; border-bottom:1px solid var(--line2);
+  }
+  .tool-ic{
+    width:34px; height:34px; border:1.5px solid var(--ink); background:#fff; border-radius:6px;
+    cursor:pointer; display:grid; place-items:center; color:var(--ink);
+  }
+  .tool-ic svg{width:18px;height:18px;}
+  .tool-ic.hidden{visibility:hidden;}
+  .board__brand{font-size:12px; color:#555; letter-spacing:.5px;}
+
+  .tabs{flex:0 0 40px; display:flex; border-bottom:1px solid var(--line2);}
+  .tab{
+    border:none; background:none; flex:1; font-size:14px; cursor:pointer; color:#555;
+    border-bottom:2px solid transparent;
+  }
+  .tab.active{color:var(--ink); font-weight:700; border-bottom-color:var(--ink);}
+
+  .panes{position:relative; flex:1;}
+  .tabpane{position:absolute; inset:0; display:none; flex-direction:column;}
+  .tabpane.active{display:flex;}
+
+  /* ============ 任务标签页 ============ */
+  .filters{
+    flex:0 0 auto; display:flex; align-items:center; gap:5px;
+    padding:9px 10px; border-bottom:1px solid var(--line2);
+  }
+  .filters .lbl{font-size:11px;color:#555;}
+  select,input{font:inherit; font-size:12px; border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink); padding:4px 6px;}
+  select:focus,input:focus{outline:none; border-color:var(--ink);}
+  #projFilter{width:96px;}
+  #priFilter{width:70px;}
+  #statusFilter{width:76px;}
+  .filters input{flex:1;min-width:88px;}
+
+  .table-scroll{flex:1; overflow-y:auto; position:relative;}
+  table{width:100%; border-collapse:collapse; table-layout:fixed;}
+  thead th{
+    position:sticky; top:0; z-index:2; text-align:left; font-size:11.5px; color:var(--ink);
+    background:var(--fill); padding:8px 8px; border-bottom:1.5px solid var(--ink); font-weight:700; white-space:nowrap;
+  }
+  thead th .arrow{font-size:9px; opacity:.6; margin-left:2px;}
+  .tbody td{
+    font-size:12.5px; padding:0 8px; height:40px; border-bottom:1px solid var(--line2);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .tbody tr{cursor:pointer;}
+  .tbody tr:hover{background:#f6f6f6;}
+  .tbody tr.selected{background:var(--fill);}
+  .tbody tr.selected td:first-child{box-shadow:inset 4px 0 0 var(--ink);}
+  .tbody tr.blank td{border-bottom:1px dashed var(--line2);}
+  .badge{display:inline-block; padding:1px 7px; border:1px solid var(--line); border-radius:10px; font-size:11px; color:#444;}
+  .col-proj{width:23%;} .col-task{width:26%;} .col-ddl{width:17%;} .col-pri{width:14%;} .col-status{width:15%;}
+
+  /* ============ 上滑面板（底边与面板平齐） ============ */
+  .sheet{
+    position:absolute; left:0; right:0; top:var(--sheet-top); bottom:0; z-index:8;
+    background:#fff; border:1.5px solid var(--ink); border-bottom:none;
+    border-radius:8px 8px 0 0;
+    display:flex; flex-direction:column;
+    transform:translateY(102%); visibility:hidden;
+    transition:transform .32s cubic-bezier(.2,.8,.2,1), visibility .32s;
+  }
+  .sheet.open{transform:translateY(0); visibility:visible;}
+  /* 设置面板：紧贴「任务/汇总」标签栏下方，位置高于详情/新建面板 */
+  .sheet--tabs{top:8px;}
+  .sheet__head{
+    flex:0 0 42px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 12px; border-bottom:1px solid var(--line2);
+  }
+  .sheet__title{font-size:13px; font-weight:700;}
+  .close-btn{
+    width:28px;height:28px;border:1px solid var(--line);background:#fff;border-radius:5px;
+    cursor:pointer;display:grid;place-items:center;color:#333;
+  }
+  .sheet__body{flex:1; padding:14px; overflow:auto;}
+  .sheet__foot{
+    flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px; border-top:1px solid var(--line2);
+  }
+  .btn{border:1.5px solid var(--ink); background:#fff; border-radius:5px; padding:7px 16px; font-size:13px; cursor:pointer; font-weight:600;}
+  .btn:hover{background:var(--fill);}
+  .note{font-size:11px;color:#555;}
+
+  .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:11px 12px;}
+  .fld label{display:block;font-size:11px;color:#555;margin-bottom:4px;}
+  .fld input,.fld select{width:100%;font-size:13px;padding:6px 8px;}
+  .fld .val{font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;min-height:16px;}
+  .fld.full{grid-column:1/-1;}
+  .meta-line{font-size:11px;font-weight:700;margin:14px 0 6px;display:flex;justify-content:space-between;}
+  .stage-list{width:100%;border-collapse:collapse;table-layout:fixed;}
+  .stage-list th{text-align:left;font-size:10.5px;background:var(--fill);padding:5px 6px;border-bottom:1px solid var(--line2);}
+  .stage-list td{font-size:11.5px;padding:5px 6px;border-bottom:1px solid var(--line2);}
+  .stage-list td.wrap{white-space:normal;word-break:break-word;}
+
+  /* ============ 汇总标签页（与任务页等尺寸） ============ */
+  .summary{padding:14px; overflow:auto;}
+  .s-card{border:1.5px solid var(--ink); border-radius:6px; padding:13px; margin-bottom:14px;}
+  .s-card h3{margin:0 0 4px;font-size:13px;}
+  .s-card .sub{font-size:11px;color:#555;margin:0 0 11px;}
+  .s-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  .g-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11.5px;}
+  .g-label{flex:0 0 118px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .g-track{flex:1;height:14px;background:var(--fill2);border:1px solid var(--line2);border-radius:3px;position:relative;overflow:hidden;}
+  .g-fill{position:absolute;left:0;top:0;bottom:0;background:var(--gray);}
+  .g-fill.a2{background:#9a9a9a;} .g-fill.a3{background:#bdbdbd;} .g-fill.a4{background:#777;}
+  .g-val{flex:0 0 38px;text-align:right;color:#555;font-size:11px;}
+  .pie-wrap{display:flex;align-items:center;gap:18px;margin-top:12px;}
+  .pie-leg{flex:1;font-size:11.5px;}
+  .leg-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+  .leg-swat{width:10px;height:10px;border-radius:2px;}
+  .leg-name{flex:1;} .leg-pct{color:#555;}
+  .report-box{border:1px solid var(--line);border-radius:5px;background:#fdfdfd;padding:12px;font-size:12px;line-height:1.8;min-height:120px;}
+  .report-actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}
+  .switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;}
+  .switch input{width:13px;height:13px;}
+
+  @media (max-width:520px){
+    .stage,.stage-head{width:100%;}
+    .board{width:100%;height:auto;min-height:100vh;}
+    .panes{min-height:60vh;}
+    .sheet{position:fixed;}
+    input,select{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage-head">WorkLog · 低保真原型（黑白线框 · 纵向 A4）</div>
+
+<div class="stage">
+
+  <!-- 可拖动单元：夹子 + 板子 -->
+  <div class="unit" id="unit">
+
+  <!-- 悬浮球（夹子） -->
+  <div class="clip" id="clip">
+    <div class="clip__body">
+      <div class="clip__row1">
+        <button class="rec-btn" id="recBtn" title="开始 / 停止计时"><span class="dot"></span></button>
+        <span class="clip__state" id="clipState">空闲</span>
+        <span class="clip__dots" id="clipDots"><span></span><span></span><span></span></span>
+        <span class="clip__spacer"></span>
+        <span class="clip__timer" id="clipTimer">00:00</span>
+      </div>
+      <div class="clip__row2">
+        <span class="clip__task" id="clipTask"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主面板 -->
+  <div class="board" id="board">
+    <div class="board__clamp"></div>
+
+    <div class="board__toolbar">
+      <button class="tool-ic" id="newBtn" title="新建项目-任务">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>
+      </button>
+      <span class="board__brand">记事板 · 任务 / 汇总</span>
+      <button class="tool-ic" id="setBtn" title="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="task">任务</button>
+      <button class="tab" data-tab="summary">汇总</button>
+    </div>
+
+    <div class="panes">
+
+      <!-- 任务标签页 -->
+      <div class="tabpane active" id="pane-task">
+        <div class="filters">
+          <span class="lbl">项目</span>
+          <select id="projFilter"><option value="全部">全部</option></select>
+          <span class="lbl">优先级</span>
+          <select id="priFilter"><option>全部</option><option>高</option><option>中</option><option>低</option></select>
+          <span class="lbl">状态</span>
+          <select id="statusFilter"><option>全部</option><option>未完成</option><option>已完成</option></select>
+          <input type="text" id="searchInput" placeholder="搜索 项目/任务">
+        </div>
+        <div class="table-scroll" id="tableScroll">
+          <table>
+            <colgroup><col class="col-proj"><col class="col-task"><col class="col-ddl"><col class="col-pri"><col class="col-status"></colgroup>
+            <thead>
+              <tr>
+                <th data-k="proj">项目名 <span class="arrow">↕</span></th>
+                <th data-k="task">任务名 <span class="arrow">↕</span></th>
+                <th data-k="ddl">DDL <span class="arrow">↕</span></th>
+                <th data-k="pri">优先级 <span class="arrow">↕</span></th>
+                <th data-k="status">状态 <span class="arrow">↕</span></th>
+              </tr>
+            </thead>
+            <tbody class="tbody" id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 汇总标签页 -->
+      <div class="tabpane" id="pane-summary">
+        <div class="summary">
+          <div class="s-card">
+            <h3>工时分配看板</h3>
+            <p class="sub">甘特图 + 扇形图（按项目-任务）</p>
+            <div class="s-tools">
+              <span class="lbl">周期</span><select><option>本周</option><option>上周</option><option>本月</option></select>
+              <span class="lbl">项目</span><select><option>全部项目</option></select>
+              <span style="flex:1"></span>
+              <button class="btn" id="dlImg">下载图片</button>
+              <button class="btn" id="dlData">导出数据</button>
+            </div>
+            <div id="gantt"></div>
+            <div class="pie-wrap">
+              <svg id="pieSvg" width="120" height="120" viewBox="0 0 120 120"></svg>
+              <div class="pie-leg" id="pieLeg"></div>
+            </div>
+          </div>
+          <div class="s-card">
+            <h3>报告生成</h3>
+            <p class="sub">日志 / 周报 / 月报，固定模板或 LLM 增强</p>
+            <div class="s-tools">
+              <span class="lbl">类型</span><select id="repType"><option>日报</option><option>周报</option><option selected>月报</option></select>
+              <span class="lbl">周期</span><select><option>2026-10</option></select>
+              <label class="switch"><input type="checkbox" checked> LLM 增强</label>
+              <span style="flex:1"></span>
+              <button class="btn" id="genBtn">生成报告</button>
+            </div>
+            <div class="report-box" id="reportBox">
+              <b>2026年10月 工作报告</b><br>
+              一、本月投入：累计 30h，集中于交通仿真平台二期（轨迹数据处理 18h、模型训练 8h）。<br>
+              二、主要产出：完成轨迹数据处理框架搭建，启动 baseline 模型训练。<br>
+              三、下月计划：模型评估与对比实验，补充测试用例，输出月报初稿。
+            </div>
+            <div class="report-actions">
+              <button class="btn" id="copyBtn">复制文本</button>
+              <button class="btn" id="expBtn">导出</button>
+              <button class="btn" id="regBtn">重新生成</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 项目详细信息面板（双击触发） -->
+      <div class="sheet" id="sheet-detail">
+        <div class="sheet__head">
+          <div class="sheet__title">项目详细信息</div>
+          <button class="close-btn" id="detailClose" title="关闭">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
+        </div>
+        <div class="sheet__body" id="detailBody"></div>
+        <div class="sheet__foot">
+          <span class="note">不含数据表已展示字段</span>
+          <button class="btn" id="detailSave">保存</button>
+        </div>
+      </div>
+
+      <!-- 新建项目-任务面板 -->
+      <div class="sheet" id="sheet-new">
+        <div class="sheet__head">
+          <div class="sheet__title">新建项目 - 任务</div>
+          <button class="close-btn" id="newClose" title="关闭">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
+        </div>
+        <div class="sheet__body">
+          <div class="field-grid">
+            <div class="fld"><label>项目名</label><input type="text"></div>
+            <div class="fld"><label>任务名</label><input type="text"></div>
+            <div class="fld"><label>截止日期（DDL）</label><input type="date"></div>
+            <div class="fld"><label>优先级</label><select><option>高</option><option selected>中</option><option>低</option></select></div>
+            <div class="fld full"><label>备注（可选 / 自定义字段）</label><input type="text"></div>
+          </div>
+        </div>
+        <div class="sheet__foot">
+          <span class="note">自动编号 项目号-任务号</span>
+          <button class="btn" id="newSave">保存并计时</button>
+        </div>
+      </div>
+
+      <!-- 设置面板 -->
+      <div class="sheet sheet--tabs" id="sheet-settings">
+        <div class="sheet__head">
+          <div class="sheet__title">设置</div>
+          <button class="close-btn" id="setClose" title="关闭">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
+        </div>
+        <div class="sheet__body">
+          <div class="field-grid">
+            <div class="fld full"><label>单次计时上限（防遗忘）</label><select><option selected>4 小时</option><option>2 小时</option><option>6 小时</option></select></div>
+            <div class="fld full"><label>LLM · Base URL</label><input type="text" placeholder="https://api.openai.com/v1"></div>
+            <div class="fld full"><label>API Key</label><input type="password"></div>
+            <div class="fld full"><label>模型名</label><input type="text" value="gpt-4o-mini"></div>
+            <div class="fld full"><label>报告增强 Skill</label><input type="text" value="默认报告增强"></div>
+            <div class="fld full"><label>自定义字段管理</label><input type="text" placeholder="新增自定义字段（如 客户 / 标签）"></div>
+          </div>
+        </div>
+        <div class="sheet__foot">
+          <span></span><button class="btn" id="setSave">保存设置</button>
+        </div>
+      </div>
+
+    </div><!-- /panes -->
+  </div><!-- /board -->
+
+  </div><!-- /unit -->
+</div><!-- /stage -->
+
+<script>
+/* ==================== 数据 ==================== */
+const DATA=[
+  {id:1,proj:'交通仿真平台二期',task:'轨迹数据处理',ddl:'2026-11-30',pri:'高',status:'未完成'},
+  {id:2,proj:'交通仿真平台二期',task:'车辆检测模型训练',ddl:'2026-12-05',pri:'中',status:'未完成'},
+  {id:3,proj:'交通仿真平台二期',task:'仿真参数标定',ddl:'2026-12-12',pri:'中',status:'未完成'},
+  {id:4,proj:'智能网联测试',task:'测试用例编写',ddl:'2026-11-20',pri:'中',status:'未完成'},
+  {id:5,proj:'智能网联测试',task:'数据标注',ddl:'2026-12-01',pri:'低',status:'已完成'},
+  {id:6,proj:'智能网联测试',task:'V2X 场景测试',ddl:'2026-12-18',pri:'高',status:'未完成'},
+  {id:7,proj:'月度报告整理',task:'周报汇总',ddl:'2026-11-25',pri:'低',status:'未完成'},
+  {id:8,proj:'月度报告整理',task:'月报初稿',ddl:'2026-11-28',pri:'中',status:'未完成'},
+  {id:9,proj:'数据中台建设',task:'接口对接',ddl:'2026-12-08',pri:'高',status:'未完成'},
+  {id:10,proj:'数据中台建设',task:'数据校验',ddl:'2026-12-10',pri:'低',status:'未完成'},
+  {id:11,proj:'文档输出',task:'用户手册',ddl:'2026-12-15',pri:'低',status:'未完成'},
+  {id:12,proj:'文档输出',task:'部署文档',ddl:'2026-12-16',pri:'低',status:'未完成'}
+];
+const STAGES={
+  1:[{s:1,d:'10-16',h:'4h',out:'数据接入与清洗',next:'验证数据集，训练 baseline'},{s:2,d:'10-17',h:'3h',out:'搭建处理框架',next:'接入轨迹数据'}],
+  2:[{s:1,d:'10-17',h:'3h',out:'数据增强与标注检查',next:'启动 baseline 训练'},{s:2,d:'10-18',h:'5h',out:'训练 baseline 模型',next:'评估指标、对比实验'}],
+  4:[{s:1,d:'10-18',h:'6h',out:'编写高优先级用例',next:'补充边界与异常用例'}]
+};
+const PRI_ORDER={高:0,中:1,低:2};
+const state={proj:'全部',pri:'全部',status:'全部',kw:'',sortKey:'',sortDir:1,selectedId:null,timerRunning:false,seconds:0,timerTaskId:null,clampEnabled:true,savedScrollTop:0};
+const $=s=>document.querySelector(s);
+const scrollEl=$('#tableScroll');
+
+/* ==================== 项目名筛选填充 ==================== */
+const projects=[...new Set(DATA.map(d=>d.proj))];
+$('#projFilter').innerHTML='<option value="全部">全部</option>'+projects.map(p=>`<option>${p}</option>`).join('');
+
+/* ==================== 计时器（悬浮球） ==================== */
+let tick=null;
+$('#recBtn').addEventListener('click',e=>e.stopPropagation());
+$('#recBtn').addEventListener('click',()=>toggleTimer());
+
+/* ==================== 主面板展开 / 收起 + 拖动 ==================== */
+const unit=$('#unit');
+let pressStart=null, dragging=false, unitBase=null;
+
+function setBoardOpen(open){
+  if(!open){
+    /* 收起时一并关闭所有上滑面板 */
+    document.querySelectorAll('.sheet.open').forEach(s=>s.classList.remove('open'));
+    state.clampEnabled=true;
+  }
+  unit.classList.toggle('is-open',open);
+}
+/* 点击夹子空白区：切换板子；按下移动：拖动 */
+$('#clip').addEventListener('click',e=>{if(e.target.closest('.rec-btn'))return; e.preventDefault();});
+$('#clip').addEventListener('pointerdown',e=>{
+  if(e.target.closest('.rec-btn'))return;   /* 启停按钮不参与 */
+  if(e.button!==undefined && e.button!==0)return;
+  pressStart={x:e.clientX,y:e.clientY};
+  dragging=false;
+  try{$('#clip').setPointerCapture(e.pointerId);}catch(_){}
+});
+$('#clip').addEventListener('pointermove',e=>{
+  if(!pressStart)return;
+  const dx=e.clientX-pressStart.x, dy=e.clientY-pressStart.y;
+  /* 按下不释放、移动即拖动（无长按等待） */
+  if(!dragging && (Math.abs(dx)>4||Math.abs(dy)>4)){
+    dragging=true;
+    const r=unit.getBoundingClientRect();
+    unitBase={left:r.left,top:r.top};
+    unit.classList.add('is-dragging','is-moved');
+    unit.style.left=r.left+'px';
+    unit.style.top=r.top+'px';
+  }
+  if(dragging){
+    let nx=unitBase.left+dx, ny=unitBase.top+dy;
+    /* 限制在视口内 */
+    const pad=8;
+    nx=Math.max(pad,Math.min(window.innerWidth-unit.offsetWidth-pad,nx));
+    ny=Math.max(pad,Math.min(window.innerHeight-40-pad,ny));
+    unit.style.left=nx+'px'; unit.style.top=ny+'px';
+  }
+});
+function endPress(e){
+  if(!pressStart)return;
+  const wasDrag=dragging;
+  if(dragging)unit.classList.remove('is-dragging');
+  dragging=false; pressStart=null;
+  /* 有释放过程、且未移动（点击）→ 展开 / 收起 */
+  if(!wasDrag)setBoardOpen(!unit.classList.contains('is-open'));
+}
+$('#clip').addEventListener('pointerup',endPress);
+$('#clip').addEventListener('pointercancel',()=>{
+  if(dragging)unit.classList.remove('is-dragging');
+  dragging=false; pressStart=null;
+});
+
+function toggleTimer(){
+  if(!state.timerRunning){
+    if(!state.selectedId){toast('请先选择项目-任务');return;}
+    const d=DATA.find(x=>x.id===state.selectedId);
+    state.timerRunning=true; state.seconds=0; state.timerTaskId=d.id;
+    $('#clip').classList.add('is-timing');
+    $('#clipState').textContent='工作中';
+    $('#clipTask').textContent=d.proj+' · '+d.task;
+    tick=setInterval(()=>{state.seconds++;renderTimer();},1000);
+  }else{
+    state.timerRunning=false; clearInterval(tick);
+    $('#clip').classList.remove('is-timing');
+    $('#clipState').textContent='空闲';
+    presentDetail(state.timerTaskId); // 停止后：当前行推至顶端并展开详情
+  }
+}
+function renderTimer(){
+  const s=state.seconds;
+  const hh=Math.floor(s/3600), mm=Math.floor(s%3600/60);
+  $('#clipTimer').textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+}
+
+/* ==================== 表格渲染 ==================== */
+function filtered(){
+  let list=DATA.slice();
+  if(state.proj!=='全部')list=list.filter(d=>d.proj===state.proj);
+  if(state.pri!=='全部')list=list.filter(d=>d.pri===state.pri);
+  if(state.status!=='全部')list=list.filter(d=>d.status===state.status);
+  if(state.kw)list=list.filter(d=>(d.proj+d.task).toLowerCase().includes(state.kw.toLowerCase()));
+  if(state.sortKey){
+    const k=state.sortKey,dir=state.sortDir;
+    list.sort((a,b)=>{let av=a[k],bv=b[k];
+      if(k==='pri'){av=PRI_ORDER[av];bv=PRI_ORDER[bv];}
+      else if(k==='ddl'){av=av.replace(/-/g,'');bv=bv.replace(/-/g,'');}
+      return (av>bv?1:av<bv?-1:0)*dir;});
+  }
+  return list;
+}
+function renderTable(){
+  const list=filtered();
+  let html=list.map(d=>{
+    const sel=d.id===state.selectedId?'selected':'';
+    return `<tr data-id="${d.id}" class="${sel}">
+      <td>${d.proj}</td><td>${d.task}</td><td>${d.ddl}</td>
+      <td><span class="badge">${d.pri}</span></td><td><span class="badge">${d.status}</span></td></tr>`;
+  }).join('');
+  /* 底部空白行（类表格，可滚动；第一个空白行即新建行 blankRow） */
+  let blank='';
+  for(let i=0;i<14;i++){blank+=`<tr class="blank"${i===0?' id="blankRow"':''}><td></td><td></td><td></td><td></td><td></td></tr>`;}
+  $('#tbody').innerHTML=html+blank;
+}
+/* 单击：仅选中（高亮 + 左侧色条），不滚动、不展开；不重建 DOM 以免打断双击 */
+function selectRowVisual(tr){
+  $('#tbody').querySelectorAll('tr.selected').forEach(x=>x.classList.remove('selected'));
+  if(!tr)return;
+  tr.classList.add('selected');
+}
+$('#tbody').addEventListener('click',e=>{
+  const tr=e.target.closest('tr'); if(!tr||tr.classList.contains('blank'))return;
+  if(state.timerRunning){toast('计时中，无法切换项目');return;}
+  state.selectedId=+tr.dataset.id;
+  selectRowVisual(tr);
+});
+/* 双击 / 停止计时：切到任务标签，重置筛选，将该数据行滚动至字段栏下方并展开详情 */
+function presentDetail(id){
+  rememberScroll();
+  state.clampEnabled=false;
+  state.proj='全部'; state.pri='全部'; state.status='全部'; state.kw='';
+  $('#projFilter').value='全部'; $('#priFilter').value='全部'; $('#statusFilter').value='全部'; $('#searchInput').value='';
+  state.selectedId=id;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
+  document.querySelector('.tab[data-tab="task"]').classList.add('active');
+  $('#pane-task').classList.add('active');
+  $('#newBtn').classList.remove('hidden');
+  closeAll();
+  renderTable();
+  const headerH=scrollEl.querySelector('thead').offsetHeight;
+  const row=$('#tbody').querySelector(`tr[data-id="${id}"]`);
+  if(row)scrollEl.scrollTop=row.offsetTop-headerH;
+  openSheet('detail',id);
+}
+/* 双击：将该行滚动至与字段栏接触，并打开项目详细信息面板 */
+$('#tbody').addEventListener('dblclick',e=>{
+  const tr=e.target.closest('tr'); if(!tr||tr.classList.contains('blank'))return;
+  if(state.timerRunning){toast('计时中，无法切换项目');return;}
+  presentDetail(+tr.dataset.id);
+});
+/* 表头排序 */
+document.querySelectorAll('thead th').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const k=th.dataset.k;
+    if(state.sortKey===k)state.sortDir*=-1;else{state.sortKey=k;state.sortDir=1;}
+    document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sorted'));
+    th.classList.add('sorted'); th.querySelector('.arrow').textContent=state.sortDir===1?'↑':'↓';
+    renderTable();
+  });
+});
+$('#projFilter').addEventListener('change',e=>{state.proj=e.target.value;renderTable();});
+$('#priFilter').addEventListener('change',e=>{state.pri=e.target.value;renderTable();});
+$('#statusFilter').addEventListener('change',e=>{state.status=e.target.value;renderTable();});
+$('#searchInput').addEventListener('input',e=>{state.kw=e.target.value.trim();renderTable();});
+
+/* ==================== 上滑面板 ==================== */
+function closeAll(){['sheet-detail','sheet-new','sheet-settings'].forEach(id=>$('#'+id).classList.remove('open'));}
+function anySheetOpen(){return !!document.querySelector('.sheet.open');}
+/* 记住打开面板前的滚动位置，关闭后复原 */
+function rememberScroll(){state.savedScrollTop=scrollEl.scrollTop;}
+function restoreScroll(){scrollEl.scrollTop=state.savedScrollTop||0;}
+/* 关闭上滑面板并复原原先的滚动位置 */
+function closeAndRestore(){
+  closeAll();
+  state.clampEnabled=true;
+  restoreScroll();
+}
+/* 滚动钳制：常规浏览时最多滚动到「底部两个空行」 */
+function maxScrollFor2Blanks(){
+  const headerH=scrollEl.querySelector('thead').offsetHeight;
+  const visibleBody=scrollEl.clientHeight-headerH;
+  const blanks=$('#tbody').querySelectorAll('tr.blank');
+  const second=blanks[1];
+  if(!second)return scrollEl.scrollHeight;
+  return second.offsetTop+second.offsetHeight-headerH-visibleBody;
+}
+scrollEl.addEventListener('scroll',()=>{
+  if(!state.clampEnabled)return;
+  const max=maxScrollFor2Blanks();
+  if(scrollEl.scrollTop>max)scrollEl.scrollTop=max;
+});
+function openSheet(id,rowId){
+  if(id==='detail'){
+    const d=DATA.find(x=>x.id===rowId); if(!d)return;
+    const st=STAGES[rowId]||[{s:1,d:'10-18',h:'4h',out:'完成本次阶段工作',next:'补充下一阶段目标'}];
+    $('#detailBody').innerHTML=`
+      <div class="field-grid">
+        <div class="fld"><label>项目名</label><div class="val">${d.proj}</div></div>
+        <div class="fld"><label>任务名</label><div class="val">${d.task}</div></div>
+        <div class="fld"><label>阶段号</label><div class="val">阶段 ${st.length}</div></div>
+        <div class="fld"><label>累计时长</label><div class="val">${st.reduce((a,s)=>a+parseInt(s.h),0)}h</div></div>
+      </div>
+      <div class="meta-line"><span>阶段列表</span><span>共 ${st.length} 段</span></div>
+      <table class="stage-list">
+        <colgroup><col style="width:12%"><col style="width:17%"><col style="width:12%"><col><col></colgroup>
+        <thead><tr><th>阶段</th><th>日期</th><th>时长</th><th>阶段成果</th><th>下一目标</th></tr></thead>
+        <tbody>${st.map(s=>`<tr><td>阶段${s.s}</td><td>${s.d}</td><td>${s.h}</td><td class="wrap">${s.out}</td><td class="wrap">${s.next}</td></tr>`).join('')}</tbody>
+      </table>`;
+  }
+  closeAll();
+  $('#sheet-'+id).classList.add('open');
+}
+$('#detailClose').addEventListener('click',closeAndRestore);
+$('#detailSave').addEventListener('click',closeAndRestore);
+/* 新建项目：再次点击按钮即关闭；打开时把底部空白行滚动至字段栏下方 */
+$('#newBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  if($('#sheet-new').classList.contains('open')){closeAndRestore();return;}
+  rememberScroll(); state.clampEnabled=false;
+  renderTable();
+  const headerH=scrollEl.querySelector('thead').offsetHeight;
+  const blank=$('#blankRow');
+  scrollEl.scrollTop=blank.offsetTop-headerH;
+  openSheet('new');
+});
+$('#newClose').addEventListener('click',closeAndRestore);
+$('#newSave').addEventListener('click',()=>{toast('已新建 项目-任务');closeAndRestore();});
+/* 设置：再次点击按钮即关闭 */
+$('#setBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  if($('#sheet-settings').classList.contains('open')){closeAndRestore();return;}
+  rememberScroll(); state.clampEnabled=false;
+  openSheet('settings');
+});
+$('#setClose').addEventListener('click',closeAndRestore);
+$('#setSave').addEventListener('click',()=>{toast('设置已保存');closeAndRestore();});
+
+/* 面板出现后：外部点击仅关闭，且不触发底层（捕获阶段同时拦截 mousedown / click，避免下拉框在 mousedown 即展开） */
+function blockOutside(e){
+  if(!anySheetOpen())return;
+  if(e.target.closest('.sheet'))return;     /* 面板内交互放行 */
+  if(e.target.closest('.tool-ic'))return;  /* 新建/设置按钮自行处理 */
+  e.stopPropagation(); e.preventDefault();
+  if(e.type==='click')closeAndRestore();
+}
+$('#board').addEventListener('mousedown',blockOutside,true);
+$('#board').addEventListener('click',blockOutside,true);
+
+/* ==================== 标签页切换 ==================== */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); $('#pane-'+t.dataset.tab).classList.add('active');
+  closeAll();
+  // 汇总页隐藏新建按钮
+  $('#newBtn').classList.toggle('hidden',t.dataset.tab==='summary');
+  if(t.dataset.tab==='summary')renderSummary();
+}));
+
+/* ==================== 汇总看板（黑白） ==================== */
+const GANNT=[
+  {name:'P001-T01 轨迹数据处理',h:18,c:''},{name:'P001-T02 模型训练',h:8,c:'a2'},
+  {name:'P002-T01 测试用例编写',h:6,c:'a3'},{name:'P003-T01 周报汇总',h:4,c:'a4'}
+];
+const PIE=[{name:'交通仿真平台二期',v:26,c:'#666'},{name:'智能网联测试',v:6,c:'#9a9a9a'},{name:'月度报告整理',v:4,c:'#bdbdbd'}];
+function renderSummary(){
+  const max=Math.max(...GANNT.map(g=>g.h));
+  $('#gantt').innerHTML=GANNT.map(g=>`<div class="g-row"><span class="g-label">${g.name}</span><div class="g-track"><div class="g-fill ${g.c}" style="width:${Math.round(g.h/max*100)}%"></div></div><span class="g-val">${g.h}h</span></div>`).join('');
+  renderPie(PIE);
+  $('#pieLeg').innerHTML=PIE.map(p=>`<div class="leg-row"><span class="leg-swat" style="background:${p.c}"></span><span class="leg-name">${p.name}</span><span class="leg-pct">${Math.round(p.v/36*100)}%</span></div>`).join('');
+}
+function renderPie(data){
+  const svg=$('#pieSvg'); svg.innerHTML=''; const c=60,r=52;
+  const total=data.reduce((a,b)=>a+b.v,0); let acc=-90;
+  data.forEach(d=>{
+    const angle=d.v/total*360,big=angle>180?1:0;
+    const x1=c+r*Math.cos(acc*Math.PI/180),y1=c+r*Math.sin(acc*Math.PI/180);
+    const x2=c+r*Math.cos((acc+angle)*Math.PI/180),y2=c+r*Math.sin((acc+angle)*Math.PI/180);
+    const el=document.createElementNS('http://www.w3.org/2000/svg','path');
+    el.setAttribute('d',`M ${c} ${c} L ${x1} ${y1} A ${r} ${r} 0 ${big} 1 ${x2} ${y2} Z`);
+    el.setAttribute('fill',d.c); el.setAttribute('stroke','#111'); el.setAttribute('stroke-width','1');
+    svg.appendChild(el); acc+=angle;
+  });
+}
+$('#genBtn').addEventListener('click',()=>{
+  const box=$('#reportBox');
+  box.innerHTML=`<b>2026年10月 工作报告（生成）</b><br>一、本月投入：累计 30h，聚焦交通仿真平台二期。<br>二、主要产出：完成轨迹处理框架搭建，启动 baseline 训练。<br>三、下月计划：模型评估、测试用例补充、月报输出。`;
+});
+$('#copyBtn').addEventListener('click',()=>{
+  (navigator.clipboard?navigator.clipboard.writeText($('#reportBox').innerText):Promise.resolve()).then(()=>{
+    $('#copyBtn').textContent='已复制';setTimeout(()=>$('#copyBtn').textContent='复制文本',1200);});
+});
+$('#expBtn').addEventListener('click',()=>toast('演示：导出报告'));
+$('#regBtn').addEventListener('click',()=>{$('#genBtn').click();});
+$('#dlImg').addEventListener('click',()=>toast('演示：下载图片'));
+$('#dlData').addEventListener('click',()=>toast('演示：导出数据'));
+
+/* ==================== Toast ==================== */
+function toast(m){
+  let t=$('#_t');
+  if(!t){t=document.createElement('div');t.id='_t';
+    t.style.cssText='position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#111;color:#fff;padding:8px 15px;border-radius:5px;font-size:13px;z-index:60;';
+    document.body.appendChild(t);}
+  t.textContent=m;
+}
+
+/* init */
+renderTable();
+renderSummary();
+</script>
+</body>
+</html>
