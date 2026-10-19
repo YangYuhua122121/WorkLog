@@ -215,6 +215,28 @@
   .switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;}
   .switch input{width:13px;height:13px;}
 
+  /* 周期分段按钮（5 个排他） */
+  .seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:6px;overflow:hidden;}
+  .seg button{border:none;background:#fff;font-size:12px;padding:6px 11px;cursor:pointer;border-right:1px solid var(--line2);color:#444;}
+  .seg button:last-child{border-right:none;}
+  .seg button.active{background:var(--ink);color:#fff;font-weight:600;}
+  /* 一体三按钮（优先级/任务状态） */
+  .tri{display:inline-flex;border:1.5px solid var(--ink);border-radius:6px;overflow:hidden;}
+  .tri button{border:none;background:#fff;font-size:12px;padding:5px 12px;cursor:pointer;border-right:1px solid var(--line2);}
+  .tri button:last-child{border-right:none;}
+  .tri button.active{background:var(--ink);color:#fff;}
+  /* P9 计时提醒窗（板内居中、较小） */
+  .remind{
+    position:absolute;z-index:40;left:50%;top:46%;transform:translate(-50%,-50%);
+    width:300px;background:#fff;border:1.5px solid var(--ink);border-radius:8px;
+    padding:16px 16px 14px;display:none;box-shadow:3px 3px 0 rgba(0,0,0,.1);
+  }
+  .remind.open{display:block;}
+  .remind__title{font-size:13px;font-weight:700;margin-bottom:8px;}
+  .remind p{font-size:12px;line-height:1.7;color:#333;margin:0 0 13px;}
+  .remind__btns{display:flex;justify-content:flex-end;gap:8px;}
+  .remind__backdrop{position:absolute;inset:0;z-index:35;background:rgba(255,255,255,.55);display:none;}
+
   @media (max-width:520px){
     .stage,.stage-head{width:100%;}
     .board{width:100%;height:auto;min-height:100vh;}
@@ -299,10 +321,15 @@
         <div class="summary">
           <div class="s-card">
             <h3>工时分配看板</h3>
-            <p class="sub">甘特图 + 扇形图（按项目-任务）</p>
+            <p class="sub">甘特图 + 扇形图（按项目 - 任务，自然周 / 月起点）</p>
             <div class="s-tools">
-              <span class="lbl">周期</span><select><option>本周</option><option>上周</option><option>本月</option></select>
-              <span class="lbl">项目</span><select><option>全部项目</option></select>
+              <div class="seg" id="periodSeg">
+                <button data-p="当日" class="active">当日</button>
+                <button data-p="本周">本周</button>
+                <button data-p="本月">本月</button>
+                <button data-p="上周">上周</button>
+                <button data-p="上月">上月</button>
+              </div>
               <span style="flex:1"></span>
               <button class="btn" id="dlImg">下载图片</button>
               <button class="btn" id="dlData">导出数据</button>
@@ -315,24 +342,12 @@
           </div>
           <div class="s-card">
             <h3>报告生成</h3>
-            <p class="sub">日志 / 周报 / 月报，固定模板或 LLM 增强</p>
-            <div class="s-tools">
-              <span class="lbl">类型</span><select id="repType"><option>日报</option><option>周报</option><option selected>月报</option></select>
-              <span class="lbl">周期</span><select><option>2026-10</option></select>
-              <label class="switch"><input type="checkbox" checked> LLM 增强</label>
-              <span style="flex:1"></span>
-              <button class="btn" id="genBtn">生成报告</button>
-            </div>
-            <div class="report-box" id="reportBox">
-              <b>2026年10月 工作报告</b><br>
-              一、本月投入：累计 30h，集中于交通仿真平台二期（轨迹数据处理 18h、模型训练 8h）。<br>
-              二、主要产出：完成轨迹数据处理框架搭建，启动 baseline 模型训练。<br>
-              三、下月计划：模型评估与对比实验，补充测试用例，输出月报初稿。
-            </div>
+            <p class="sub" id="repSub">固定模板自动生成；可点 AI 增强重写（自配 OpenAI 兼容接口）</p>
+            <div class="report-box" id="reportBox"></div>
             <div class="report-actions">
+              <button class="btn" id="aiBtn">AI 增强</button>
               <button class="btn" id="copyBtn">复制文本</button>
               <button class="btn" id="expBtn">导出</button>
-              <button class="btn" id="regBtn">重新生成</button>
             </div>
           </div>
         </div>
@@ -371,7 +386,8 @@
           </div>
         </div>
         <div class="sheet__foot">
-          <span class="note">自动编号 项目号-任务号</span>
+          <button class="btn" id="newCancel" style="border-color:#7a1f1f;color:#7a1f1f">取消新建</button>
+          <span class="note">自动编号 项目号 - 任务号</span>
           <button class="btn" id="newSave">保存</button>
         </div>
       </div>
@@ -384,11 +400,18 @@
         <div class="sheet__body">
           <div class="fld full"><label>项目 - 任务</label><div class="val" id="f3Task"></div></div>
           <div class="fld full"><label>本次时长</label><div class="val" id="f3Dur"></div></div>
-          <div class="fld full"><label>阶段成果（本次成果，可留空）</label><textarea id="f3Out" rows="3"></textarea></div>
-          <div class="fld full"><label>下一目标（待完成，可留空）</label><textarea id="f3Next" rows="3"></textarea></div>
+          <div class="fld full"><label>阶段成果（可留空）</label><textarea id="f3Out" rows="3"></textarea></div>
+          <div class="fld full"><label>下一目标（可留空）</label><textarea id="f3Next" rows="3"></textarea></div>
+          <div class="fld full"><label>任务状态</label>
+            <div class="tri" id="f3Status">
+              <button data-s="未完成" class="active">未完成</button>
+              <button data-s="已完成">已完成</button>
+            </div>
+          </div>
         </div>
         <div class="sheet__foot">
-          <span class="note">阶段成果 / 下一目标可留空，但需点击保存</span>
+          <button class="btn" id="f3Delete" style="border-color:#7a1f1f;color:#7a1f1f">删除记录</button>
+          <span class="note">可留空，但需手动保存或删除</span>
           <button class="btn" id="f3Save">保存</button>
         </div>
       </div>
@@ -403,11 +426,13 @@
         </div>
         <div class="sheet__body">
           <div class="field-grid">
-            <div class="fld full"><label>单次计时上限（防遗忘）</label><select><option selected>4 小时</option><option>2 小时</option><option>6 小时</option></select></div>
+            <div class="fld full"><label>异常时间段（防遗忘 · 如工作日 19:00 之后）</label><input type="text" value="工作日 19:00 - 次日 06:00"></div>
+            <div class="fld"><label>异常时段连续工作上限 x（分钟）</label><input type="number" value="60"></div>
+            <div class="fld"><label>自动停止前倒计时 y（秒）</label><input type="number" value="60"></div>
+            <div class="fld full"><button class="btn" id="setPreviewR9" style="width:100%">预览「计时提醒窗」</button></div>
             <div class="fld full"><label>LLM · Base URL</label><input type="text" placeholder="https://api.openai.com/v1"></div>
             <div class="fld full"><label>API Key</label><input type="password"></div>
             <div class="fld full"><label>模型名</label><input type="text" value="gpt-4o-mini"></div>
-            <div class="fld full"><label>报告增强 Skill</label><input type="text" value="默认报告增强"></div>
             <div class="fld full"><label>自定义字段管理</label><input type="text" placeholder="新增自定义字段（如 客户 / 标签）"></div>
           </div>
         </div>
@@ -417,6 +442,17 @@
       </div>
 
     </div><!-- /panes -->
+
+    <!-- P9 计时提醒窗（板内居中、较小） -->
+    <div class="remind__backdrop" id="remindBackdrop"></div>
+    <div class="remind" id="remind9">
+      <div class="remind__title">计时提醒</div>
+      <p>检测到你可能忘记停止计时。<br>若无操作，将在 <b id="r9count">60</b> 秒后自动停止。</p>
+      <div class="remind__btns">
+        <button class="btn" id="r9keep">仍在工作</button>
+        <button class="btn" id="r9stop">立即停止</button>
+      </div>
+    </div>
   </div><!-- /board -->
 
   </div><!-- /unit -->
@@ -761,11 +797,24 @@ function presentF3(taskId){
   closeHeaderMenu();
   $('#sheet-f3').classList.add('open');
 }
+$('#f3Status').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  $('#f3Status').querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+});
 $('#f3Save').addEventListener('click',()=>{
   state.modalLocked=false;
   $('#sheet-f3').classList.remove('open');
   state.clampEnabled=true;
   toast('已保存本次阶段记录');
+});
+$('#f3Delete').addEventListener('click',()=>{
+  state.modalLocked=false;
+  $('#sheet-f3').classList.remove('open');
+  state.clampEnabled=true;
+  state.selectedId=null;
+  renderTable();
+  toast('已删除本次阶段记录');
 });
 /* 新建项目：在最上方新增一个空白行（最新位置），打开面板；再次点击按钮即关闭 */
 $('#newBtn').addEventListener('click',e=>{
@@ -779,6 +828,12 @@ $('#newBtn').addEventListener('click',e=>{
   openSheet('new');
 });
 $('#newClose').addEventListener('click',()=>{state.showNewRow=false;closeAndRestore();});
+$('#newCancel').addEventListener('click',()=>{
+  state.showNewRow=false;
+  /* 取消：清空表单 */
+  ['newProj','newTask','newDDL'].forEach(i=>$('#'+i).value='');
+  closeAndRestore();
+});
 /* 保存：新任务作为最新数据置顶（新建面板只保存） */
 $('#newSave').addEventListener('click',()=>{
   const id=Math.max(...DATA.map(d=>d.id))+1;
@@ -859,18 +914,69 @@ function renderPie(data){
     svg.appendChild(el); acc+=angle;
   });
 }
-$('#genBtn').addEventListener('click',()=>{
-  const box=$('#reportBox');
-  box.innerHTML=`<b>2026年10月 工作报告（生成）</b><br>一、本月投入：累计 30h，聚焦交通仿真平台二期。<br>二、主要产出：完成轨迹处理框架搭建，启动 baseline 训练。<br>三、下月计划：模型评估、测试用例补充、月报输出。`;
+/* ==================== 周期切换 / 报告（固定模板 + AI） ==================== */
+const state_summary={period:'当日'};
+const PERIOD_LABEL={当日:'今日',本周:'本周',本月:'本月',上周:'上周',上月:'上月'};
+$('#periodSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  $('#periodSeg').querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  state_summary.period=b.dataset.p;
+  renderReport(false);
+  toast('已切换至「'+b.dataset.p+'」');
+});
+const FIXED_REPORT={
+  '当日':['<b>2026-10-19 工作日志</b><br>今日投入：交通仿真平台二期 · 轨迹数据处理（4h）；交通仿真平台二期 · 模型训练（2h）。<br>主要产出：完成轨迹数据处理框架搭建。<br>下一目标：验证数据集，训练 baseline 模型。'],
+  '本周':['<b>第 42 周 周报</b><br>本周累计：交通仿真平台二期 26h，智能网联测试 6h。<br>主要产出：轨迹处理框架、baseline 训练、高优先级用例。<br>下周计划：模型评估与对比实验，补充测试用例。'],
+  '本月':['<b>2026 年 10 月 月报</b><br>本月累计：交通仿真平台二期（轨迹数据处理 18h、模型训练 8h），智能网联测试 6h，月度报告整理 4h。<br>主要产出：处理框架搭建、baseline 训练启动、用例编写。<br>下月计划：模型评估、对比实验、月报输出。'],
+  '上周':['<b>第 41 周 周报</b><br>上周累计：数据中台建设 12h，文档输出 8h。<br>主要产出：接口对接、数据校验、用户手册初稿。<br>遗留：部署文档补充、接口联调。'],
+  '上月':['<b>2026 年 9 月 月报</b><br>上月累计：需求梳理与环境准备 24h。<br>主要产出：完成环境搭建、需求确认与数据样本准备。<br>本月计划：进入核心功能开发。']
+};
+function renderReport(ai){
+  const p=state_summary.period;
+  $('#repSub').textContent=ai?'已由 AI 增强重写（自配 OpenAI 兼容接口）':'固定模板自动生成；可点 AI 增强重写（自配 OpenAI 兼容接口）';
+  $('#reportBox').innerHTML=ai?FIXED_REPORT[p][0].replace('<b>','<b>（AI 增强）'):FIXED_REPORT[p][0];
+}
+$('#aiBtn').addEventListener('click',()=>{
+  /* 演示：若已配置 API Key 则调用 LLM，否则提示并回退固定模板 */
+  const hasKey=Math.random()>.5; /* 演示随机模拟配置状态 */
+  if(hasKey){renderReport(true);toast('AI 已增强重写');}
+  else{toast('未配置 API，已回退固定模板');}
 });
 $('#copyBtn').addEventListener('click',()=>{
   (navigator.clipboard?navigator.clipboard.writeText($('#reportBox').innerText):Promise.resolve()).then(()=>{
     $('#copyBtn').textContent='已复制';setTimeout(()=>$('#copyBtn').textContent='复制文本',1200);});
 });
 $('#expBtn').addEventListener('click',()=>toast('演示：导出报告'));
-$('#regBtn').addEventListener('click',()=>{$('#genBtn').click();});
 $('#dlImg').addEventListener('click',()=>toast('演示：下载图片'));
 $('#dlData').addEventListener('click',()=>toast('演示：导出数据'));
+
+/* ==================== P9 计时提醒窗（防遗忘） ==================== */
+let r9timer=null;
+function openRemind9(){
+  $('#remind9').classList.add('open');$('#remindBackdrop').style.display='block';
+  let n=60;$('#r9count').textContent=n;
+  clearInterval(r9timer);
+  r9timer=setInterval(()=>{n--;$('#r9count').textContent=n;
+    if(n<=0){closeRemind9();
+      if(state.timerRunning)forceStop();}
+  },1000);
+}
+function closeRemind9(){clearInterval(r9timer);$('#remind9').classList.remove('open');$('#remindBackdrop').style.display='none';}
+function forceStop(){
+  state.timerRunning=false;clearInterval(tick);
+  $('#clip').classList.remove('is-timing');$('#clipState').textContent='空闲';
+  presentF3(state.timerTaskId);
+}
+$('#r9keep').addEventListener('click',()=>{closeRemind9();toast('已重置提醒计时');});
+$('#r9stop').addEventListener('click',()=>{closeRemind9();forceStop();});
+/* 异常时段防遗忘：计时中，演示触发（设置中的预览入口） */
+$('#setPreviewR9').addEventListener('click',()=>{
+  if(state.modalLocked){toast('请先保存本次阶段记录');return;}
+  setBoardOpen(true);
+  closeAll();
+  openRemind9();
+});
 
 /* ==================== Toast ==================== */
 function toast(m){
@@ -884,6 +990,7 @@ function toast(m){
 /* init */
 renderTable();
 renderSummary();
+renderReport(false);
 </script>
 </body>
 </html>
