@@ -113,17 +113,9 @@
   .tabpane.active{display:flex;}
 
   /* ============ 任务标签页 ============ */
-  .filters{
-    flex:0 0 auto; display:flex; align-items:center; gap:5px;
-    padding:9px 10px; border-bottom:1px solid var(--line2);
-  }
-  .filters .lbl{font-size:11px;color:#555;}
-  select,input{font:inherit; font-size:12px; border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink); padding:4px 6px;}
-  select:focus,input:focus{outline:none; border-color:var(--ink);}
-  #projFilter{width:96px;}
-  #priFilter{width:70px;}
-  #statusFilter{width:76px;}
-  .filters input{flex:1;min-width:88px;}
+  select,input,textarea{font:inherit; font-size:12px; border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink); padding:4px 6px;}
+  textarea{line-height:1.5; resize:vertical;}
+  select:focus,input:focus,textarea:focus{outline:none; border-color:var(--ink);}
 
   .table-scroll{flex:1; overflow-y:auto; position:relative;}
   table{width:100%; border-collapse:collapse; table-layout:fixed;}
@@ -131,7 +123,23 @@
     position:sticky; top:0; z-index:2; text-align:left; font-size:11.5px; color:var(--ink);
     background:var(--fill); padding:8px 8px; border-bottom:1.5px solid var(--ink); font-weight:700; white-space:nowrap;
   }
-  thead th .arrow{font-size:9px; opacity:.6; margin-left:2px;}
+  /* 表头功能标记 */
+  .th-filter{cursor:pointer;}
+  .th-filter .caret{font-size:9px; margin-left:1px; color:#555;}
+  .th-filter.is-active .caret{color:var(--ink); font-weight:700;}
+  .th-sort{cursor:pointer;}
+  .th-sort .arrow{font-size:9px; margin-left:2px; opacity:.5;}
+  .th-sort.is-active .arrow{opacity:1;}
+  /* 表头下拉菜单 */
+  .hdr-menu{
+    position:absolute; display:none; z-index:30; background:#fff;
+    border:1.5px solid var(--ink); border-radius:5px; overflow-y:auto;
+    max-height:280px; min-width:120px; box-shadow:2px 2px 0 rgba(0,0,0,.08);
+  }
+  .hdr-menu.open{display:block;}
+  .hdr-menu .mi{padding:7px 12px; font-size:12.5px; cursor:pointer; white-space:nowrap;}
+  .hdr-menu .mi:hover,.hdr-menu .mi.active{background:var(--fill);}
+  .hdr-menu .mi .chk{display:inline-block; width:14px; color:var(--ink);}
   .tbody td{
     font-size:12.5px; padding:0 8px; height:40px; border-bottom:1px solid var(--line2);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -267,29 +275,22 @@
 
       <!-- 任务标签页 -->
       <div class="tabpane active" id="pane-task">
-        <div class="filters">
-          <span class="lbl">项目</span>
-          <select id="projFilter"><option value="全部">全部</option></select>
-          <span class="lbl">优先级</span>
-          <select id="priFilter"><option>全部</option><option>高</option><option>中</option><option>低</option></select>
-          <span class="lbl">状态</span>
-          <select id="statusFilter"><option>全部</option><option>未完成</option><option>已完成</option></select>
-          <input type="text" id="searchInput" placeholder="搜索 项目/任务">
-        </div>
         <div class="table-scroll" id="tableScroll">
           <table>
             <colgroup><col class="col-proj"><col class="col-task"><col class="col-ddl"><col class="col-pri"><col class="col-status"></colgroup>
             <thead>
               <tr>
-                <th data-k="proj">项目名 <span class="arrow">↕</span></th>
-                <th data-k="task">任务名 <span class="arrow">↕</span></th>
-                <th data-k="ddl">DDL <span class="arrow">↕</span></th>
-                <th data-k="pri">优先级 <span class="arrow">↕</span></th>
-                <th data-k="status">状态 <span class="arrow">↕</span></th>
+                <th data-filter="proj" class="th-filter">项目名 <span class="caret">▾</span></th>
+                <th>任务名</th>
+                <th data-sort="ddl" class="th-sort">DDL <span class="arrow"></span></th>
+                <th data-filter="pri" class="th-filter">优先级 <span class="caret">▾</span></th>
+                <th data-filter="status" class="th-filter">状态 <span class="caret">▾</span></th>
               </tr>
             </thead>
             <tbody class="tbody" id="tbody"></tbody>
           </table>
+          <!-- 表头筛选下拉菜单 -->
+          <div class="hdr-menu" id="hdrMenu"></div>
         </div>
       </div>
 
@@ -362,16 +363,33 @@
         </div>
         <div class="sheet__body">
           <div class="field-grid">
-            <div class="fld"><label>项目名</label><input type="text"></div>
-            <div class="fld"><label>任务名</label><input type="text"></div>
-            <div class="fld"><label>截止日期（DDL）</label><input type="date"></div>
-            <div class="fld"><label>优先级</label><select><option>高</option><option selected>中</option><option>低</option></select></div>
+            <div class="fld"><label>项目名</label><input type="text" id="newProj"></div>
+            <div class="fld"><label>任务名</label><input type="text" id="newTask"></div>
+            <div class="fld"><label>截止日期（DDL）</label><input type="date" id="newDDL"></div>
+            <div class="fld"><label>优先级</label><select id="newPri"><option>高</option><option selected>中</option><option>低</option></select></div>
             <div class="fld full"><label>备注（可选 / 自定义字段）</label><input type="text"></div>
           </div>
         </div>
         <div class="sheet__foot">
           <span class="note">自动编号 项目号-任务号</span>
-          <button class="btn" id="newSave">保存并计时</button>
+          <button class="btn" id="newSave">保存</button>
+        </div>
+      </div>
+
+      <!-- 本次阶段记录面板（停止后自动弹出 · 模态 · 必须保存） -->
+      <div class="sheet" id="sheet-f3">
+        <div class="sheet__head">
+          <div class="sheet__title">本次阶段记录</div>
+        </div>
+        <div class="sheet__body">
+          <div class="fld full"><label>项目 - 任务</label><div class="val" id="f3Task"></div></div>
+          <div class="fld full"><label>本次时长</label><div class="val" id="f3Dur"></div></div>
+          <div class="fld full"><label>阶段成果（本次成果，可留空）</label><textarea id="f3Out" rows="3"></textarea></div>
+          <div class="fld full"><label>下一目标（待完成，可留空）</label><textarea id="f3Next" rows="3"></textarea></div>
+        </div>
+        <div class="sheet__foot">
+          <span class="note">阶段成果 / 下一目标可留空，但需点击保存</span>
+          <button class="btn" id="f3Save">保存</button>
         </div>
       </div>
 
@@ -426,13 +444,16 @@ const STAGES={
   4:[{s:1,d:'10-18',h:'6h',out:'编写高优先级用例',next:'补充边界与异常用例'}]
 };
 const PRI_ORDER={高:0,中:1,低:2};
-const state={proj:'全部',pri:'全部',status:'全部',kw:'',sortKey:'',sortDir:1,selectedId:null,timerRunning:false,seconds:0,timerTaskId:null,clampEnabled:true,savedScrollTop:0};
+const state={proj:'全部',pri:'全部',status:'全部',sortKey:'',sortDir:0,selectedId:null,timerRunning:false,seconds:0,timerTaskId:null,clampEnabled:true,savedScrollTop:0,showNewRow:false,modalLocked:false};
 const $=s=>document.querySelector(s);
 const scrollEl=$('#tableScroll');
-
-/* ==================== 项目名筛选填充 ==================== */
-const projects=[...new Set(DATA.map(d=>d.proj))];
-$('#projFilter').innerHTML='<option value="全部">全部</option>'+projects.map(p=>`<option>${p}</option>`).join('');
+/* 项目名（下拉默认 A-Z） */
+const projects=[...new Set(DATA.map(d=>d.proj))].sort((a,b)=>a.localeCompare(b,'zh'));
+const FILTER_DEFS={
+  proj:{state:'proj',opts:()=>['全部',...projects]},
+  pri:{state:'pri',opts:()=>['全部','高','中','低']},
+  status:{state:'status',opts:()=>['全部','未完成','已完成']}
+};
 
 /* ==================== 计时器（悬浮球） ==================== */
 let tick=null;
@@ -486,8 +507,11 @@ function endPress(e){
   const wasDrag=dragging;
   if(dragging)unit.classList.remove('is-dragging');
   dragging=false; pressStart=null;
-  /* 有释放过程、且未移动（点击）→ 展开 / 收起 */
-  if(!wasDrag)setBoardOpen(!unit.classList.contains('is-open'));
+  /* 有释放过程、且未移动（点击）→ 展开 / 收起；模态下不收起 */
+  if(!wasDrag){
+    if(state.modalLocked){toast('请先保存本次阶段记录');return;}
+    setBoardOpen(!unit.classList.contains('is-open'));
+  }
 }
 $('#clip').addEventListener('pointerup',endPress);
 $('#clip').addEventListener('pointercancel',()=>{
@@ -496,6 +520,7 @@ $('#clip').addEventListener('pointercancel',()=>{
 });
 
 function toggleTimer(){
+  if(state.modalLocked){toast('请先保存本次阶段记录');return;}
   if(!state.timerRunning){
     if(!state.selectedId){toast('请先选择项目-任务');return;}
     const d=DATA.find(x=>x.id===state.selectedId);
@@ -508,7 +533,7 @@ function toggleTimer(){
     state.timerRunning=false; clearInterval(tick);
     $('#clip').classList.remove('is-timing');
     $('#clipState').textContent='空闲';
-    presentDetail(state.timerTaskId); // 停止后：当前行推至顶端并展开详情
+    presentF3(state.timerTaskId); /* 停止后：当前行推至顶端，模态弹出阶段记录 */
   }
 }
 function renderTimer(){
@@ -523,28 +548,31 @@ function filtered(){
   if(state.proj!=='全部')list=list.filter(d=>d.proj===state.proj);
   if(state.pri!=='全部')list=list.filter(d=>d.pri===state.pri);
   if(state.status!=='全部')list=list.filter(d=>d.status===state.status);
-  if(state.kw)list=list.filter(d=>(d.proj+d.task).toLowerCase().includes(state.kw.toLowerCase()));
-  if(state.sortKey){
-    const k=state.sortKey,dir=state.sortDir;
-    list.sort((a,b)=>{let av=a[k],bv=b[k];
-      if(k==='pri'){av=PRI_ORDER[av];bv=PRI_ORDER[bv];}
-      else if(k==='ddl'){av=av.replace(/-/g,'');bv=bv.replace(/-/g,'');}
+  if(state.sortKey==='ddl'){
+    const dir=state.sortDir;
+    list.sort((a,b)=>{let av=a.ddl.replace(/-/g,''),bv=b.ddl.replace(/-/g,'');
       return (av>bv?1:av<bv?-1:0)*dir;});
+  }else{
+    /* 默认按追加顺序，最上方为最新 */
+    list.sort((a,b)=>b.id-a.id);
   }
   return list;
 }
 function renderTable(){
   const list=filtered();
-  let html=list.map(d=>{
+  /* 最上方新增空白行（新建时） */
+  const top=state.showNewRow?`<tr class="blank blank--new" id="blankRow"><td></td><td></td><td></td><td></td><td></td></tr>`:'';
+  const html=list.map(d=>{
     const sel=d.id===state.selectedId?'selected':'';
     return `<tr data-id="${d.id}" class="${sel}">
       <td>${d.proj}</td><td>${d.task}</td><td>${d.ddl}</td>
       <td><span class="badge">${d.pri}</span></td><td><span class="badge">${d.status}</span></td></tr>`;
   }).join('');
-  /* 底部空白行（类表格，可滚动；第一个空白行即新建行 blankRow） */
-  let blank='';
-  for(let i=0;i<14;i++){blank+=`<tr class="blank"${i===0?' id="blankRow"':''}><td></td><td></td><td></td><td></td><td></td></tr>`;}
-  $('#tbody').innerHTML=html+blank;
+  /* 底部保留若干空白行（提供滚动区间 / 表格感） */
+  let bot='';
+  for(let i=0;i<6;i++){bot+=`<tr class="blank blk"><td></td><td></td><td></td><td></td><td></td></tr>`;}
+  $('#tbody').innerHTML=top+html+bot;
+  updateHeaderCarats();
 }
 /* 单击：仅选中（高亮 + 左侧色条），不滚动、不展开；不重建 DOM 以免打断双击 */
 function selectRowVisual(tr){
@@ -562,19 +590,19 @@ $('#tbody').addEventListener('click',e=>{
   state.selectedId=id;
   selectRowVisual(tr);
 });
-/* 双击 / 停止计时：切到任务标签，重置筛选，将该数据行滚动至字段栏下方并展开详情 */
+/* 双击：切到任务标签，重置筛选，将该数据行滚动至字段栏下方并展开详情 */
 function presentDetail(id){
   rememberScroll();
-  setBoardOpen(true);   /* 若板子当前收起（如计时中收起后停止），先展开 */
+  setBoardOpen(true);
   state.clampEnabled=false;
-  state.proj='全部'; state.pri='全部'; state.status='全部'; state.kw='';
-  $('#projFilter').value='全部'; $('#priFilter').value='全部'; $('#statusFilter').value='全部'; $('#searchInput').value='';
+  state.proj='全部'; state.pri='全部'; state.status='全部';
   state.selectedId=id;
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
   document.querySelector('.tab[data-tab="task"]').classList.add('active');
   $('#pane-task').classList.add('active');
   $('#newBtn').classList.remove('hidden');
+  state.showNewRow=false;
   closeAll();
   renderTable();
   const headerH=scrollEl.querySelector('thead').offsetHeight;
@@ -589,23 +617,68 @@ $('#tbody').addEventListener('dblclick',e=>{
   if(state.timerRunning && id!==state.timerTaskId){toast('计时中，无法切换项目');return;}
   presentDetail(id);
 });
-/* 表头排序 */
-document.querySelectorAll('thead th').forEach(th=>{
-  th.addEventListener('click',()=>{
-    const k=th.dataset.k;
-    if(state.sortKey===k)state.sortDir*=-1;else{state.sortKey=k;state.sortDir=1;}
-    document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sorted'));
-    th.classList.add('sorted'); th.querySelector('.arrow').textContent=state.sortDir===1?'↑':'↓';
-    renderTable();
+/* 表头：点击项目名/优先级/状态 → 筛选下拉；点击 DDL → 三态排序 */
+const hdrMenu=$('#hdrMenu');
+function closeHeaderMenu(){hdrMenu.classList.remove('open');}
+function openHeaderMenu(th,key){
+  const def=FILTER_DEFS[key];
+  const hdrH=scrollEl.querySelector('thead').offsetHeight;
+  const cur=state[def.state];
+  hdrMenu.style.top=hdrH+'px';
+  hdrMenu.style.left=Math.max(0,th.offsetLeft)+'px';
+  hdrMenu.innerHTML=def.opts().map(o=>{
+    const on=o===cur;
+    return `<div class="mi ${on?'active':''}" data-v="${o}">${on?'<span class="chk">✓</span>':'<span class="chk"></span>'}${o}</div>`;
+  }).join('');
+  hdrMenu.classList.add('open');
+  hdrMenu.querySelectorAll('.mi').forEach(mi=>{
+    mi.onclick=ev=>{
+      ev.stopPropagation();
+      state[def.state]=mi.dataset.v;
+      closeHeaderMenu();
+      renderTable();
+    };
+  });
+}
+document.querySelectorAll('thead th[data-filter]').forEach(th=>{
+  th.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(hdrMenu.classList.contains('open')){closeHeaderMenu();return;}
+    openHeaderMenu(th,th.dataset.filter);
   });
 });
-$('#projFilter').addEventListener('change',e=>{state.proj=e.target.value;renderTable();});
-$('#priFilter').addEventListener('change',e=>{state.pri=e.target.value;renderTable();});
-$('#statusFilter').addEventListener('change',e=>{state.status=e.target.value;renderTable();});
-$('#searchInput').addEventListener('input',e=>{state.kw=e.target.value.trim();renderTable();});
+/* DDL 三态：未排序 → 升序 → 降序 → 未排序 */
+document.querySelector('thead th[data-sort="ddl"]').addEventListener('click',e=>{
+  e.stopPropagation();
+  const cur=state.sortKey==='ddl'?state.sortDir:0;
+  if(cur===0){state.sortKey='ddl';state.sortDir=1;}
+  else if(cur===1){state.sortDir=-1;}
+  else{state.sortKey='';state.sortDir=0;}
+  renderTable();
+});
+/* 表头功能标记更新 */
+function updateHeaderCarats(){
+  document.querySelectorAll('thead th[data-filter]').forEach(th=>{
+    const cur=state[FILTER_DEFS[th.dataset.filter].state];
+    th.classList.toggle('is-active',cur!=='全部');
+  });
+  const sortTh=document.querySelector('thead th[data-sort="ddl"]');
+  if(state.sortKey==='ddl'){
+    sortTh.classList.add('is-active');
+    sortTh.querySelector('.arrow').textContent=state.sortDir===1?'↑':'↓';
+  }else{
+    sortTh.classList.remove('is-active');
+    sortTh.querySelector('.arrow').textContent='';
+  }
+}
+/* 点击表格其他位置 / 滚动时收起表头菜单 */
+scrollEl.addEventListener('scroll',closeHeaderMenu);
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.hdr-menu')&&!e.target.closest('th[data-filter]'))closeHeaderMenu();
+});
 
 /* ==================== 上滑面板 ==================== */
-function closeAll(){['sheet-detail','sheet-new','sheet-settings'].forEach(id=>$('#'+id).classList.remove('open'));}
+function closeAll(){['sheet-detail','sheet-new','sheet-f3','sheet-settings'].forEach(id=>$('#'+id).classList.remove('open'));}
 function anySheetOpen(){return !!document.querySelector('.sheet.open');}
 /* 记住打开面板前的滚动位置，关闭后复原 */
 function rememberScroll(){state.savedScrollTop=scrollEl.scrollTop;}
@@ -620,7 +693,7 @@ function closeAndRestore(){
 function maxScrollFor2Blanks(){
   const headerH=scrollEl.querySelector('thead').offsetHeight;
   const visibleBody=scrollEl.clientHeight-headerH;
-  const blanks=$('#tbody').querySelectorAll('tr.blank');
+  const blanks=$('#tbody').querySelectorAll('tr.blank.blk');
   const second=blanks[1];
   if(!second)return scrollEl.scrollHeight;
   return second.offsetTop+second.offsetHeight-headerH-visibleBody;
@@ -653,22 +726,80 @@ function openSheet(id,rowId){
 }
 $('#detailClose').addEventListener('click',closeAndRestore);
 $('#detailSave').addEventListener('click',closeAndRestore);
-/* 新建项目：再次点击按钮即关闭；打开时把底部空白行滚动至字段栏下方 */
+
+/* 停止计时：当前行推至顶端，模态打开本次阶段记录，必须手动保存 */
+function formatDuration(s){
+  const h=Math.floor(s/3600), m=Math.floor(s%3600/60);
+  return (h?h+' 小时 ':'')+m+' 分钟';
+}
+function presentF3(taskId){
+  rememberScroll();
+  setBoardOpen(true);
+  state.clampEnabled=false;
+  state.modalLocked=true;
+  state.proj='全部'; state.pri='全部'; state.status='全部';
+  state.selectedId=taskId;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
+  document.querySelector('.tab[data-tab="task"]').classList.add('active');
+  $('#pane-task').classList.add('active');
+  $('#newBtn').classList.remove('hidden');
+  state.showNewRow=false;
+  closeAll();
+  renderTable();
+  const d=DATA.find(x=>x.id===taskId);
+  const headerH=scrollEl.querySelector('thead').offsetHeight;
+  const row=$('#tbody').querySelector(`tr[data-id="${taskId}"]`);
+  if(row)scrollEl.scrollTop=row.offsetTop-headerH;
+  $('#f3Task').textContent=d.proj+' · '+d.task;
+  $('#f3Dur').textContent=formatDuration(state.seconds);
+  /* 阶段成果预输入：上一段「下一目标」（如存在） */
+  const prev=STAGES[taskId];
+  if(prev&&prev.length)$('#f3Out').value=prev[prev.length-1].next||'';
+  $('#f3Out').value=$('#f3Out').value||'';
+  $('#f3Next').value='';
+  closeHeaderMenu();
+  $('#sheet-f3').classList.add('open');
+}
+$('#f3Save').addEventListener('click',()=>{
+  state.modalLocked=false;
+  $('#sheet-f3').classList.remove('open');
+  state.clampEnabled=true;
+  toast('已保存本次阶段记录');
+});
+/* 新建项目：在最上方新增一个空白行（最新位置），打开面板；再次点击按钮即关闭 */
 $('#newBtn').addEventListener('click',e=>{
   e.stopPropagation();
-  if($('#sheet-new').classList.contains('open')){closeAndRestore();return;}
+  if(state.modalLocked){toast('请先保存本次阶段记录');return;}
+  if($('#sheet-new').classList.contains('open')){state.showNewRow=false;closeAndRestore();return;}
   rememberScroll(); state.clampEnabled=false;
+  state.showNewRow=true;
   renderTable();
-  const headerH=scrollEl.querySelector('thead').offsetHeight;
-  const blank=$('#blankRow');
-  scrollEl.scrollTop=blank.offsetTop-headerH;
+  scrollEl.scrollTop=0;
   openSheet('new');
 });
-$('#newClose').addEventListener('click',closeAndRestore);
-$('#newSave').addEventListener('click',()=>{toast('已新建 项目-任务');closeAndRestore();});
+$('#newClose').addEventListener('click',()=>{state.showNewRow=false;closeAndRestore();});
+/* 保存：新任务作为最新数据置顶（新建面板只保存） */
+$('#newSave').addEventListener('click',()=>{
+  const id=Math.max(...DATA.map(d=>d.id))+1;
+  DATA.push({
+    id,
+    proj:$('#newProj').value.trim()||'新建项目',
+    task:$('#newTask').value.trim()||'新建任务',
+    ddl:$('#newDDL').value||'2026-12-20',
+    pri:$('#newPri').value,
+    status:'未完成'
+  });
+  state.showNewRow=false;
+  state.selectedId=id;
+  closeAndRestore();
+  renderTable();
+  toast('已保存');
+});
 /* 设置：再次点击按钮即关闭 */
 $('#setBtn').addEventListener('click',e=>{
   e.stopPropagation();
+  if(state.modalLocked){toast('请先保存本次阶段记录');return;}
   if($('#sheet-settings').classList.contains('open')){closeAndRestore();return;}
   rememberScroll(); state.clampEnabled=false;
   openSheet('settings');
@@ -679,7 +810,12 @@ $('#setSave').addEventListener('click',()=>{toast('设置已保存');closeAndRes
 /* 面板出现后：外部点击仅关闭，且不触发底层（捕获阶段同时拦截 mousedown / click，避免下拉框在 mousedown 即展开） */
 function blockOutside(e){
   if(!anySheetOpen())return;
-  if(e.target.closest('.sheet'))return;     /* 面板内交互放行 */
+  if(e.target.closest('.sheet'))return;     /* 面板内交互（含保存）放行 */
+  if(state.modalLocked){
+    /* 模态（本次阶段记录）：外部点击一律不触发、不关闭 */
+    e.stopPropagation(); e.preventDefault();
+    return;
+  }
   if(e.target.closest('.tool-ic'))return;  /* 新建/设置按钮自行处理 */
   e.stopPropagation(); e.preventDefault();
   if(e.type==='click')closeAndRestore();
