@@ -3,7 +3,7 @@
 use super::with_conn;
 use crate::db::Db;
 use chrono::Local;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, OptionalExtension};
 use serde::Serialize;
 
 /// 数据表的一行
@@ -47,7 +47,7 @@ pub struct TaskInput {
     pub custom_fields: Option<String>,
 }
 
-fn row_from(conn: &Connection, r: &rusqlite::Row<'_>) -> rusqlite::Result<TaskRow> {
+fn row_from(r: &rusqlite::Row<'_>) -> rusqlite::Result<TaskRow> {
     let project_id: i64 = r.get(0)?;
     let task_id: i64 = r.get(1)?;
     Ok(TaskRow {
@@ -101,21 +101,6 @@ pub fn get(db: &Db, project_id: i64, task_id: i64) -> Result<TaskDetail, String>
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "任务不存在".to_string())?;
         Ok(TaskDetail { row, stages })
-    })
-}
-
-/// 全部项目名（筛选下拉用，A-Z 排序）
-pub fn project_names(db: &Db) -> Result<Vec<String>, String> {
-    with_conn(db, |conn| {
-        let mut stmt = conn
-            .prepare("SELECT DISTINCT project_name FROM project_task ORDER BY project_name COLLATE NOCASE")
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |r| r.get::<_, String>(0))
-            .map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())?;
-        Ok(rows)
     })
 }
 

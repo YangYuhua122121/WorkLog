@@ -114,11 +114,13 @@ pub fn info(app: &AppHandle) -> TimerInfo {
     let state = app.state::<TimerState>();
     let running = state.running.lock().ok().and_then(|g| g.clone());
     let has_pending = state.pending.lock().map(|g| g.is_some()).unwrap_or(false);
+    let elapsed = running
+        .as_ref()
+        .map(|r| ((Local::now().timestamp_millis() - r.started_ms) / 1000).max(0))
+        .unwrap_or(0);
     TimerInfo {
         running: running.is_some(),
-        elapsed: running
-            .map(|r| ((Local::now().timestamp_millis() - r.started_ms) / 1000).max(0))
-            .unwrap_or(0),
+        elapsed,
         project_id: running.as_ref().map(|r| r.project_id),
         task_id: running.as_ref().map(|r| r.task_id),
         has_pending,

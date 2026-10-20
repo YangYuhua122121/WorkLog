@@ -20,7 +20,9 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id("main")
         .tooltip("workLog")
         .menu(&menu)
-        .on_menu_event(|app, event| match event.id().as_ref() {
+        .on_menu_event(|tray, event| {
+            let app = tray.app_handle();
+            match event.id().as_ref() {
             "show" => {
                 if let Some(win) = app.get_webview_window("main") {
                     match win.is_visible() {
@@ -31,9 +33,11 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
             }
             "quit" => app.exit(0),
             _ => {}
+            }
         })
-        .on_tray_icon_event(|app, event| {
+        .on_tray_icon_event(|tray, event| {
             use tauri::tray::TrayIconEvent;
+            let app = tray.app_handle();
             if let TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, button_state: tauri::tray::MouseButtonState::Up, .. } = event {
                 if let Some(win) = app.get_webview_window("main") {
                     let _ = win.show();

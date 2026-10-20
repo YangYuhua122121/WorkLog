@@ -7,6 +7,10 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
+/// 随包提供的默认报告配置（编译进二进制，首次启动写到配置目录）
+const DEFAULT_TEMPLATE: &str = include_str!("../../resources/report-template.yaml");
+const DEFAULT_SKILL: &str = include_str!("../../resources/report-skill.md");
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Config {
@@ -118,17 +122,16 @@ pub fn init(app: &AppHandle) -> Result<(), String> {
         fs::write(&file, toml::to_string_pretty(&cfg).map_err(|e| e.to_string())?)
             .map_err(|e| format!("写配置失败：{e}"))?;
     }
-    // 报告的模板 / Skill：随包资源 → 配置目录
+    // 报告的模板 / Skill：随包资源（编译进二进制）→ 配置目录
     let cfg_sub = dir.join("config");
     fs::create_dir_all(&cfg_sub).map_err(|e| format!("建 config 目录失败：{e}"))?;
-    for name in ["report-template.yaml", "report-skill.md"] {
+    for (name, content) in [
+        ("report-template.yaml", DEFAULT_TEMPLATE),
+        ("report-skill.md", DEFAULT_SKILL),
+    ] {
         let target = cfg_sub.join(name);
         if !target.exists() {
-            if let Some(res) = app.path().resolve(format!("resources/{name}"), tauri::path::BaseDirectory::Resource) {
-                if res.exists() {
-                    let _ = fs::copy(&res, &target);
-                }
-            }
+            let _ = fs::write(&target, content);
         }
     }
     Ok(())
