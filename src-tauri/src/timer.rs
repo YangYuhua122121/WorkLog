@@ -5,13 +5,15 @@
 //! - 防遗忘看门狗：正常工作时间之外连续工作超过 x 分钟 → 提醒窗；y 秒无操作 → 自动停止。
 
 use chrono::{Local, NaiveTime};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 /// 正在计时
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Running {
     pub project_id: i64,
@@ -22,7 +24,7 @@ pub struct Running {
 }
 
 /// 停止后待确认的阶段
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingStage {
     pub project_id: i64,
@@ -61,6 +63,65 @@ fn now_ms() -> i64 {
     Local::now().timestamp_millis()
 }
 
+#[derive(Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistedTimer {
+    running: Option<Running>,
+    pending: Option<PendingStage>,
+}
+
+fn state_file(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(crate::config::config_dir(app)?.join("timer-state.json"))
+}
+
+/// 把运行态 / 待保存阶段写入磁盘，应用意外退出或重启后可恢复
+fn persist(app: &AppHandle) {
+    let state = app.state::<TimerState>();
+    let running = state.running.lock().ok().and_then(|g| g.clone());
+    let pending = state.pending.lock().ok().and_then(|g| g.clone());
+    let snap = PersistedTimer { running, pending };
+    let Ok(path) = state_file(app) else { return };
+    let Ok(text) = serde_json::to_string_pretty(&snap) else { return };
+    let tmp = path.with_extension("json.tmp");
+    if fs::write(&tmp, text).is_ok() {
+        // Unix 可直接覆盖；Windows 的 rename 不能覆盖已有文件，失败时退回 copy
+        if fs::rename(&tmp, &path).is_err() {
+            let _ = fs::copy(&tmp, &path);
+            let _ = fs::remove_file(&tmp);
+        }
+    }
+}
+
+/// 启动应用时恢复上次的计时状态；若在计时中，重启心跳线程
+pub fn restore(app: &AppHandle) {
+    let Ok(path) = state_file(app) else { return };
+    let Ok(text) = fs::read_to_string(path) else { return };
+    let Ok(snap) = serde_json::from_str::<PersistedTimer>(&text) else { return };
+    let state = app.state::<TimerState>();
+    if let Ok(mut g) = state.running.lock() {
+        *g = snap.running;
+    }
+    if let Ok(mut p) = state.pending.lock() {
+        *p = snap.pending;
+    }
+    let running = state.running.lock().map(|g| g.is_some()).unwrap_or(false);
+    if running {
+        if let Ok(mut a) = state.ack_ms.lock() {
+            *a = now_ms();
+        }
+        let my_gen = {
+            let mut g = match state.generation.lock() {
+                Ok(g) => g,
+                Err(_) => return,
+            };
+            *g += 1;
+            *g
+        };
+        spawn_ticker(app, my_gen);
+        let _ = app.emit("timer-restored", ());
+    }
+}
+
 /// 开始计时
 pub fn start(app: &AppHandle, project_id: i64, task_id: i64) -> Result<(), String> {
     let state = app.state::<TimerState>();
@@ -93,7 +154,13 @@ pub fn start(app: &AppHandle, project_id: i64, task_id: i64) -> Result<(), Strin
         *g
     };
 
-    // 每秒推一次心跳；顺带跑防遗忘看门狗
+    persist(app);
+    spawn_ticker(app, my_gen);
+    Ok(())
+}
+
+/// 每秒推一次心跳；顺带跑防遗忘看门狗
+fn spawn_ticker(app: &AppHandle, my_gen: u64) {
     let handle = app.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_secs(1));
@@ -158,6 +225,7 @@ pub fn start(app: &AppHandle, project_id: i64, task_id: i64) -> Result<(), Strin
                 match take_pending(&st) {
                     Ok(Some(pending)) => {
                         st.clear_reminder();
+                        persist(&handle);
                         let _ = handle.emit("timer-auto-stopped", pending);
                         break;
                     }
@@ -169,7 +237,6 @@ pub fn start(app: &AppHandle, project_id: i64, task_id: i64) -> Result<(), Strin
             }
         }
     });
-    Ok(())
 }
 
 /// 把当前 running 转成 pending（停止 / 自动停止共用）
@@ -202,6 +269,7 @@ pub fn stop(app: &AppHandle) -> Result<PendingStage, String> {
         *g += 1;
     }
     state.clear_reminder();
+    persist(app);
     let _ = app.emit("reminder-hide", ());
     Ok(pending)
 }
@@ -211,6 +279,8 @@ pub fn discard(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<TimerState>();
     let mut p = state.pending.lock().map_err(|_| "计时状态锁异常".to_string())?;
     *p = None;
+    drop(p);
+    persist(app);
     Ok(())
 }
 

@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: JS syntax
+        run: |
+          node --check src/app.js
+          node --check src/api.js
+          node --check src/clip.js
+      - name: Rust tests
+        run: cargo test --lib
+        working-directory: src-tauri
+      - name: Rust check
+        run: cargo check
+        working-directory: src-tauri

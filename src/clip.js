@@ -20,6 +20,7 @@ const state = {
   winH: 66,
   scale: 1,
   idleW: 138,
+  transitionUntil: 0,
 };
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -45,7 +46,7 @@ function applyAppearance(a) {
   state.fontSize = fs;
   document.documentElement.style.setProperty('--ui-fs', fs + 'px');
   clearTimeout(appearanceResizeTimer);
-  appearanceResizeTimer = setTimeout(() => resizeToContent(), 30);
+  appearanceResizeTimer = setTimeout(() => resizeToContent(), 340);
 }
 if (mqLight.addEventListener) {
   mqLight.addEventListener('change', () => {
@@ -67,6 +68,7 @@ let stateSeq = 0;
 async function applyState(s) {
   if (!s) return;
   const seq = ++stateSeq;
+  state.transitionUntil = Date.now() + 340;
   const next = !!s.running;
   const proj = s.proj || '';
   const task = s.task || '';
@@ -131,7 +133,10 @@ function measureTiming(proj, task) {
   Object.assign(clone.style, {
     position: 'fixed', left: '-9999px', top: '0', margin: '0',
     visibility: 'hidden', pointerEvents: 'none',
+    transition: 'none', width: 'fit-content',
   });
+  const row2 = clone.querySelector('.clip__row2');
+  if (row2) row2.style.transition = 'none';
   clone.querySelector('.clip__state').textContent = '工作中';
   clone.querySelector('.clip__task').textContent = proj + ' · ' + task;
   clone.querySelector('.clip__timer').textContent = '00:00';
@@ -158,7 +163,8 @@ async function growTo(c) {
   await resizeWindowTo(c);
 }
 async function resizeToContent() {
-  const c = measure();
+  if (Date.now() < state.transitionUntil) return;
+  const c = state.running ? measureTiming(state.proj, state.task) : measure();
   if (!state.running) state.idleW = c.w;
   await resizeWindowTo(c);
 }

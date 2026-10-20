@@ -216,12 +216,19 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // 单实例：再次启动时只把已有悬浮球显示出来，不再开第二个
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(clip) = app.get_webview_window("clip") {
+                let _ = clip.show();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let handle = app.handle().clone();
             config::init(&handle).map_err(std::io::Error::other)?;
             db::init(&handle).map_err(std::io::Error::other)?;
             app.manage(timer::TimerState::default());
+            timer::restore(&handle);
             app.manage(UiState::default());
 
             set_window_levels(&handle);
