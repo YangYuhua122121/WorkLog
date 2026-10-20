@@ -6,29 +6,14 @@
   <title>workLog</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
+<body class="board-page">
 
 
 <div class="stage">
   <div class="unit" id="unit">
 
-    <!-- ============ P2 悬浮球（夹子） ============ -->
-    <div class="clip" id="clip" title="点击展开 / 收起主面板 · 拖动可移动 · 双击回到默认位置">
-      <div class="clip__body">
-        <div class="clip__row1">
-          <button class="rec-btn" id="recBtn" title="开始 / 停止计时"><span class="dot"></span></button>
-          <span class="clip__state" id="clipState">空闲</span>
-          <span class="clip__dots" id="clipDots"><span></span><span></span><span></span></span>
-          <span class="clip__spacer"></span>
-          <span class="clip__timer" id="clipTimer">00:00</span>
-        </div>
-        <div class="clip__row2">
-          <span class="clip__task" id="clipTask"></span>
-        </div>
-      </div>
-    </div>
-
     <!-- ============ P3 主面板 ============ -->
+    <div class="board-slot" id="boardSlot">
     <div class="board" id="board">
 
       <div class="board__toolbar">
@@ -107,7 +92,7 @@
                 </button>
                 <div id="reportText"></div>
               </div>
-              <div class="note" style="margin-top:7px">默认按固定模板生成；配置 API 后可点「AI 增强」重写，点右上角图标复制文本。</div>
+              <div class="note" id="reportNote" style="margin-top:7px">默认按固定模板生成；配置 API 后可点「AI 增强」重写，点右上角图标复制文本。</div>
             </div>
           </div>
         </div>
@@ -301,17 +286,19 @@
               <div class="field-grid">
                 <div class="fld full"><label>固定格式化模板配置文件</label>
                   <div class="path-row">
-                    <input type="text" id="setTemplatePath" value="配置/report-template.yaml" readonly>
+                    <input type="text" id="setTemplatePath" value="" placeholder="加载中…" readonly>
                     <button class="btn" id="btnOpenTemplate" type="button">打开</button>
+                    <button class="btn" id="btnResetTemplate" type="button" title="恢复随包默认模板">恢复默认</button>
                   </div>
                 </div>
                 <div class="fld full"><label>报告撰写 Skill 文件</label>
                   <div class="path-row">
-                    <input type="text" id="setSkillPath" value="配置/report-skill.md" readonly>
+                    <input type="text" id="setSkillPath" value="" placeholder="加载中…" readonly>
                     <button class="btn" id="btnOpenSkill" type="button">打开</button>
+                    <button class="btn" id="btnResetSkill" type="button" title="恢复随包默认 Skill">恢复默认</button>
                   </div>
                 </div>
-                <div class="fld full"><div class="note">模板文件只改三块：字段对照（给数据起名）/ 自定义文字（把名字拼成一句话）/ 报告正文（日报·周报·月报）；Skill 文件只管语言与写法。两者随应用放在配置目录，读取失败时回退内置默认模板，报告仍可正常生成。</div></div>
+                <div class="fld full"><div class="note" id="reportCfgNote">模板文件只改三块：字段对照（给数据起名）/ 自定义文字（把名字拼成一句话）/ 报告正文（日报·周报·月报）；Skill 文件只管语言与写法。两者随应用放在配置目录，读取失败时回退内置默认模板，报告仍可正常生成。</div></div>
               </div>
             </div>
 
@@ -343,9 +330,11 @@
       </div>
       <div class="remind-backdrop" id="remindBackdrop"></div>
     </div><!-- /board -->
+    </div><!-- /boardSlot -->
   </div><!-- /unit -->
 </div><!-- /stage -->
 
+<div class="ctx-menu" id="ctxMenu"></div>
 <div id="toast"></div>
 
 <script type="module" src="./app.js"></script>

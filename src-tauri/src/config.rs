@@ -14,16 +14,41 @@ const DEFAULT_SKILL: &str = include_str!("../../resources/report-skill.md");
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Config {
+    /// 用户自定义字段名（列表，按顺序显示在「备注」下方）
+    #[serde(alias = "custom_fields")]
+    pub custom_fields: Vec<String>,
     pub llm: Llm,
     pub appearance: Appearance,
     pub reminder: Reminder,
     pub report: Report,
+    pub window: WindowCfg,
+}
+
+/// 主窗体位置（悬浮球 + 主面板整体）。保存逻辑坐标，重启后还原。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(default, rename_all = "camelCase")]
+pub struct WindowCfg {
+    pub x: i32,
+    pub y: i32,
+    pub saved: bool,
+}
+
+impl Default for WindowCfg {
+    fn default() -> Self {
+        Self {
+            x: 0,
+            y: 0,
+            saved: false,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Llm {
+    #[serde(alias = "base_url")]
     pub base_url: String,
+    #[serde(alias = "api_key")]
     pub api_key: String,
     pub model: String,
 }
@@ -34,32 +59,41 @@ pub struct Appearance {
     /// dark | light | auto
     pub theme: String,
     /// 根字号（px），界面字号统一走 rem
+    #[serde(alias = "font_size")]
     pub font_size: u16,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Reminder {
+    #[serde(alias = "work_start")]
     pub work_start: String,
+    #[serde(alias = "work_end")]
     pub work_end: String,
+    #[serde(alias = "limit_x_minutes")]
     pub limit_x_minutes: u32,
+    #[serde(alias = "stop_y_seconds")]
     pub stop_y_seconds: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Report {
+    #[serde(alias = "template_file")]
     pub template_file: String,
+    #[serde(alias = "skill_file")]
     pub skill_file: String,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
+            custom_fields: Vec::new(),
             llm: Llm::default(),
             appearance: Appearance::default(),
             reminder: Reminder::default(),
             report: Report::default(),
+            window: WindowCfg::default(),
         }
     }
 }
@@ -111,6 +145,42 @@ pub fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn config_file(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(config_dir(app)?.join("config.toml"))
+}
+
+/// 报告依赖的两个文件的绝对路径（`config/` 子目录下）
+pub fn report_file(app: &AppHandle, kind: &str) -> Result<PathBuf, String> {
+    let cfg = load(app);
+    let rel = match kind {
+        "skill" => cfg.report.skill_file,
+        _ => cfg.report.template_file,
+    };
+    if rel.contains("..") {
+        return Err("报告配置路径不合法".into());
+    }
+    Ok(config_dir(app)?.join(rel))
+}
+
+/// 把随包默认的报告配置写回（设置里的「恢复默认」）
+pub fn reset_report_file(app: &AppHandle, kind: &str) -> Result<(), String> {
+    let path = report_file(app, kind)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("建目录失败：{e}"))?;
+    }
+    let content = if kind == "skill" {
+        DEFAULT_SKILL
+    } else {
+        DEFAULT_TEMPLATE
+    };
+    fs::write(&path, content).map_err(|e| format!("写入默认配置失败：{e}"))
+}
+
+/// 保存主窗体坐标
+pub fn save_window_pos(app: &AppHandle, x: i32, y: i32) -> Result<(), String> {
+    let mut cfg = load(app);
+    cfg.window.x = x;
+    cfg.window.y = y;
+    cfg.window.saved = true;
+    save(app, &cfg)
 }
 
 /// 首次启动：写默认配置，并把随包的报告配置复制到 `config/`

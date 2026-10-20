@@ -12,7 +12,7 @@
     --panel:#2c2c2e;
     --surface:#3a3a3c;
     --chrome:rgba(28,28,30,.55);      /* 上滑面板标题栏 / 底栏：深框浅身 */
-    --clip-bg:rgba(58,58,60,.86);     /* 悬浮球：比页面与面板都亮一档 */
+    --clip-bg:rgba(58,58,60,.94);     /* 悬浮球：比页面与面板都亮一档 */
     --pop-bg:rgba(58,58,60,.98);      /* 下拉 / 浮窗 / 提醒窗 */
     --pop-line:rgba(255,255,255,.12);
     --toast-bg:rgba(44,44,46,.96);
@@ -115,8 +115,6 @@
   .unit.is-open .clip{margin-bottom:-24px; cursor:pointer;}
   .clip__body{
     background:var(--clip-bg);
-    -webkit-backdrop-filter:blur(20px) saturate(160%);
-    backdrop-filter:blur(20px) saturate(160%);
     border:1px solid var(--line);
     border-radius:12px;
     padding:8px 15px;
@@ -163,7 +161,7 @@
     border-radius:12px;
     display:flex; flex-direction:column; overflow:hidden;
     transform-origin:top center;
-    transition:height .26s ease-out, opacity .2s ease-out, border-color .2s ease-out;
+    transition:opacity .12s ease-out, border-color .2s ease-out;
   }
   .unit:not(.is-open) .board{height:0; opacity:0; border-color:transparent; pointer-events:none;}
 
@@ -256,7 +254,6 @@
   .hdr-menu{
     position:absolute; display:none; z-index:30;
     background:var(--pop-bg);
-    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
     border:1px solid var(--line); border-radius:10px;
     overflow-y:auto; max-height:280px; min-width:130px;
     padding:4px; box-shadow:var(--shadow);
@@ -389,7 +386,6 @@
   .combo .combo-list{
     position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:25;display:none;
     background:var(--pop-bg);
-    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
     border:1px solid var(--line); border-radius:10px;
     padding:4px; max-height:190px;overflow:auto;
     box-shadow:var(--shadow);
@@ -551,7 +547,6 @@
     position:absolute; display:none; z-index:40; pointer-events:none;
     min-width:112px; max-width:210px; padding:8px 10px;
     background:var(--pop-bg);
-    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
     border:1px solid var(--pop-line); border-radius:10px;
     box-shadow:var(--shadow);
     font-size:0.688rem; line-height:1.5; color:var(--t2);
@@ -589,7 +584,6 @@
   .remind{
     position:absolute;z-index:40;left:50%;top:46%;transform:translate(-50%,-50%);
     width:310px;background:var(--pop-bg);
-    -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px);
     border:1px solid var(--pop-line);border-radius:12px;
     padding:18px 18px 15px;display:none;
     box-shadow:var(--shadow);
@@ -606,7 +600,6 @@
   #toast{
     position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
     background:var(--toast-bg);
-    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
     border:1px solid var(--pop-line);
     color:var(--t1);padding:10px 18px;border-radius:10px;font-size:0.781rem;
     z-index:200;opacity:0;pointer-events:none;
@@ -696,7 +689,7 @@
     --surface:#4e4e54;
     --sub-bg:rgba(255,255,255,.055);
     --chrome:rgba(255,255,255,.07);   /* 深色主题：顶 / 底栏比面板中央更浅 */
-    --clip-bg:rgba(78,78,84,.92);
+    --clip-bg:rgba(78,78,84,.97);
     --field-bg:#2e2e32;
     --well:rgba(0,0,0,.28);
     --well-2:rgba(0,0,0,.22);
@@ -714,7 +707,7 @@
     --surface:#d2d2d8;
     --sub-bg:rgba(0,0,0,.045);
     --chrome:rgba(0,0,0,.035);
-    --clip-bg:rgba(210,210,216,.92);
+    --clip-bg:rgba(210,210,216,.97);
     --field-bg:#f6f6f8;
     --well:rgba(0,0,0,.05);
     --well-2:rgba(0,0,0,.045);
@@ -752,33 +745,97 @@
 /* ==============================================================
    桌面应用适配（与原型共用的样式，末尾覆盖）
    - 窗口本身即应用：body 透明、无外边距
-   - 悬浮球 + 主面板同窗，展开时窗口放大
+   - 悬浮球 + 主面板同窗；展开时窗口 480×736，收起时 480×96
+   - 主面板上边缘落在悬浮球中央水平线（板子从夹子下伸出）
    ============================================================== */
-html{background:transparent;}
-body{
-  background:transparent; padding:0; min-height:100vh;
-  overflow:hidden;
-}
-.stage{width:100%; max-width:480px; margin:0 auto;}
+html,body{background:transparent; width:100%; height:100%; padding:0; margin:0; overflow:hidden;}
+body{min-height:0; zoom:1 !important;}
+.stage{width:100%; height:100%; max-width:none; margin:0;}
 .unit{
-  position:relative; left:auto; top:auto; width:100%;
-  transform:none;
+  position:relative; left:auto; top:auto; width:100%; height:100%;
+  transform:none; display:block;
 }
 .unit.is-dragging,.unit.is-moved{transform:none;}
-.board{width:100%; height:calc(100vh - 56px);}
-.clip{position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:6;}
-.unit.is-open .clip{margin-bottom:0;}
-
-/* 汇总标签页（M3 接入前的占位） */
-.pane-placeholder{
-  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:10px; padding:40px 28px; text-align:center; color:var(--t3);
+.clip{
+  position:absolute; top:8px; left:50%; transform:translateX(-50%);
+  z-index:6; margin:0;
 }
-.pane-placeholder .ph-title{font-family:var(--font-serif); font-size:0.875rem; color:var(--t1); font-weight:600;}
-.pane-placeholder .ph-text{font-size:0.75rem; line-height:1.8;}
+.unit.is-open .clip{margin-bottom:0; cursor:pointer;}
+.board-slot{
+  position:absolute; left:0; top:32px; width:100%;
+  height:calc(100vh - 52px);
+  overflow:hidden; z-index:2; pointer-events:none;
+}
+.unit.is-open .board-slot{pointer-events:auto;}
+.board{
+  position:relative; left:auto; top:auto; width:100%; height:100%;
+  border-radius:12px;
+  /* 从夹子下方「拉出来」：只露出顶部开始的区域，再逐渐向下展开 */
+  clip-path:inset(0 0 100% 0);
+  transform:translateY(-18px);
+  transition:clip-path .28s cubic-bezier(.22,.9,.24,1), transform .28s cubic-bezier(.22,.9,.24,1);
+  will-change:clip-path, transform;
+}
+.unit.is-open .board{clip-path:inset(0 0 0 0); transform:translateY(0);}
+.unit:not(.is-open) .board{height:100%; border-color:var(--line); opacity:1; pointer-events:none;}
 
-/* 窄窗口（<520px）不再用移动端那套布局 */
+/* 汇总页空态 / 报告正文 */
+.chart-empty{
+  display:flex; align-items:center; justify-content:center;
+  min-height:120px; padding:22px 12px; text-align:center;
+  color:var(--t3); font-size:0.719rem;
+}
+.chart-empty--side{min-height:0; padding:10px 0; text-align:left;}
+.report-box{color:var(--t2);}
+#reportText{white-space:pre-wrap; word-break:break-word; font-family:var(--font-sans);}
+.report-box:empty::before{content:"本周期暂无报告内容"; color:var(--t4);}
+.pie-sec{cursor:default; transition:opacity .15s ease-out;}
+.pie-sec:hover{opacity:.88;}
+.path-row .btn{padding:6px 8px; font-size:0.688rem;}
+.gantt__tick{pointer-events:none;}
+
+/* 窄窗口下仍按桌面布局（原型里的移动端规则只用于演示页） */
 @media (max-width:520px){
-  .stage,.unit,.board{width:100%;}
-  .board{height:calc(100vh - 56px);}
+  .stage,.unit,.board,.board-slot{width:100%;}
+  .board-slot{height:calc(100vh - 52px);}
+  .sheet{position:absolute;}
+  input,select{font-size:0.75rem;}
 }
+@media (max-height:840px){
+  body{zoom:1;}
+}
+
+/* 数据表右键菜单（导出 / 删除，F4） */
+.ctx-menu{
+  position:fixed; display:none; z-index:300; min-width:168px;
+  padding:5px; border-radius:10px;
+  background:var(--pop-bg); border:1px solid var(--pop-line);
+  box-shadow:var(--shadow); font-size:0.75rem;
+}
+.ctx-menu.open{display:block;}
+.ctx-menu .mi{
+  display:flex; align-items:center; gap:8px;
+  padding:7px 10px; border-radius:7px; color:var(--t2); cursor:pointer;
+  white-space:nowrap; transition:background-color .2s ease-out, color .2s ease-out;
+}
+.ctx-menu .mi:hover{background:var(--fill-2); color:var(--t1);}
+.ctx-menu .mi.is-danger{color:var(--no-fg);}
+.ctx-menu .mi.is-danger:hover{background:var(--no-bg);}
+.ctx-menu .mi.is-disabled{opacity:.45; cursor:not-allowed;}
+.ctx-menu .sep{height:1px; background:var(--line-soft); margin:4px 6px;}
+
+/* 文本默认不可选中（避免误选悬浮球 / 标签 / 表头文字）；输入框与报告正文仍可选中复制 */
+body{-webkit-user-select:none; user-select:none;}
+input,textarea,select,.report-box,#reportText{-webkit-user-select:text; user-select:text;}
+
+/* ==============================================================
+   双窗口：主面板页
+   - 主面板窗口固定 480×680，本身就是板子，不再有顶部 32px 透明条
+   - 悬浮球是另一个独立窗口，叠在板子上边缘中央
+   ============================================================== */
+body.board-page .board-slot{top:0; height:100%;}
+body.board-page .board{height:100%;}
+
+/* 甘特悬浮浮窗：项目当天任务清单 */
+.hovercard__total{border-top:1px solid var(--line-soft); margin-top:5px; padding-top:5px;}
+.gantt__bar{padding:0 2px;}

@@ -21,6 +21,7 @@ pub struct TaskRow {
     pub status: String,
     pub remark: String,
     pub custom_fields: String,
+    pub created_at: String,
     pub updated_at: String,
     pub stage_count: i64,
     pub total_sec: i64,
@@ -61,15 +62,16 @@ fn row_from(r: &rusqlite::Row<'_>) -> rusqlite::Result<TaskRow> {
         status: r.get(6)?,
         remark: r.get::<_, Option<String>>(7)?.unwrap_or_default(),
         custom_fields: r.get::<_, Option<String>>(8)?.unwrap_or_else(|| "{}".into()),
-        updated_at: r.get(9)?,
-        stage_count: r.get(10)?,
-        total_sec: r.get::<_, Option<i64>>(11)?.unwrap_or(0),
+        created_at: r.get(9)?,
+        updated_at: r.get(10)?,
+        stage_count: r.get(11)?,
+        total_sec: r.get::<_, Option<i64>>(12)?.unwrap_or(0),
     })
 }
 
 const SELECT_TASK: &str = r#"
 SELECT p.project_id, p.task_id, p.project_name, p.task_name, p.due_date, p.priority,
-       p.status, p.remark, p.custom_fields, p.updated_at,
+       p.status, p.remark, p.custom_fields, p.created_at, p.updated_at,
        (SELECT COUNT(*) FROM stage s WHERE s.project_id = p.project_id AND s.task_id = p.task_id),
        (SELECT COALESCE(SUM(s.duration), 0) FROM stage s WHERE s.project_id = p.project_id AND s.task_id = p.task_id)
 FROM project_task p
@@ -164,6 +166,7 @@ pub fn create(db: &Db, input: &TaskInput) -> Result<TaskRow, String> {
             status: "未完成".into(),
             remark: input.remark.clone().unwrap_or_default(),
             custom_fields: input.custom_fields.clone().unwrap_or_else(|| "{}".into()),
+            created_at: now.clone(),
             updated_at: now,
             stage_count: 0,
             total_sec: 0,

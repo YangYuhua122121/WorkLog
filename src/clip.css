@@ -1,0 +1,34 @@
+html, body {
+  background: transparent;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+body.clip-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 8px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.clip-page .clip {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  margin: 0;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+.clip-page .clip.is-timing { width: fit-content; }
+.clip-page #toast {
+  font-size: 0.688rem;
+  padding: 6px 10px;
+  max-width: 124px;
+  line-height: 1.45;
+  white-space: normal;
+}

@@ -7,20 +7,43 @@
     "frontendDist": "../src"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
+        "label": "clip",
         "title": "workLog",
-        "width": 480,
-        "height": 720,
-        "minWidth": 480,
-        "minHeight": 420,
+        "url": "clip.html",
+        "width": 138,
+        "height": 66,
+        "minWidth": 80,
+        "minHeight": 48,
         "resizable": true,
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "center": true,
-        "visible": true
+        "visible": true,
+        "shadow": false,
+        "acceptFirstMouse": true
+      },
+      {
+        "label": "board",
+        "title": "workLog",
+        "url": "index.html",
+        "width": 480,
+        "height": 680,
+        "minWidth": 480,
+        "minHeight": 680,
+        "resizable": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "center": false,
+        "visible": false,
+        "shadow": false,
+        "acceptFirstMouse": true
       }
     ],
     "security": {
@@ -44,7 +67,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["../resources/*"],
+    "resources": [
+      "../resources/*"
+    ],
     "macOS": {
       "minimumSystemVersion": "10.15"
     }

@@ -23,6 +23,8 @@ toml = "0.8"
 rusqlite = { version = "0.32", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+rust_xlsxwriter = "0.79"
 
 [profile.release]
 codegen-units = 1
@@ -30,3 +32,6 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSGraphics"] }

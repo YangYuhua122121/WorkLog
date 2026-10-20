@@ -2,6 +2,7 @@
 
 use super::with_conn;
 use crate::db::Db;
+use chrono::Local;
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +29,15 @@ pub struct StageInput {
     pub started_at: String,
     pub ended_at: String,
     pub duration: i64,
+    pub result: Option<String>,
+    pub next_goal: Option<String>,
+    pub status: Option<String>,
+}
+
+/// 阶段编辑（详情面板里改成果 / 下一目标 / 状态）
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StagePatch {
     pub result: Option<String>,
     pub next_goal: Option<String>,
     pub status: Option<String>,
@@ -100,6 +110,20 @@ pub fn add(db: &Db, input: &StageInput) -> Result<StageRow, String> {
             ],
         )
         .map_err(|e| format!("保存阶段失败：{e}"))?;
+        // 阶段保存也是一次「操作」：更新最近操作时间与任务状态（默认排序用）
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let status = input.status.clone().unwrap_or_else(|| "未完成".into());
+        let status = if ["未完成", "已完成"].contains(&status.as_str()) {
+            status
+        } else {
+            "未完成".into()
+        };
+        conn.execute(
+            "UPDATE project_task SET updated_at = ?3, status = ?4
+             WHERE project_id = ?1 AND task_id = ?2",
+            params![input.project_id, input.task_id, now, status],
+        )
+        .map_err(|e| format!("更新任务状态失败：{e}"))?;
         Ok(StageRow {
             project_id: input.project_id,
             task_id: input.task_id,
@@ -111,6 +135,39 @@ pub fn add(db: &Db, input: &StageInput) -> Result<StageRow, String> {
             next_goal: input.next_goal.clone().unwrap_or_default(),
             status: input.status.clone().unwrap_or_else(|| "未完成".into()),
         })
+    })
+}
+
+/// 编辑一条阶段（详情面板保存）
+pub fn update(
+    db: &Db,
+    project_id: i64,
+    task_id: i64,
+    stage_id: i64,
+    patch: &StagePatch,
+) -> Result<(), String> {
+    with_conn(db, |conn| {
+        let n = conn
+            .execute(
+                "UPDATE stage
+                 SET result = COALESCE(?4, result),
+                     next_goal = COALESCE(?5, next_goal),
+                     status = COALESCE(?6, status)
+                 WHERE project_id = ?1 AND task_id = ?2 AND stage_id = ?3",
+                params![project_id, task_id, stage_id, patch.result, patch.next_goal, patch.status],
+            )
+            .map_err(|e| format!("保存阶段失败：{e}"))?;
+        if n == 0 {
+            return Err("阶段不存在".into());
+        }
+        // 详情里改阶段也算一次「操作」，让该行按最近操作时间排到前面
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        conn.execute(
+            "UPDATE project_task SET updated_at = ?3 WHERE project_id = ?1 AND task_id = ?2",
+            params![project_id, task_id, now],
+        )
+        .map_err(|e| format!("更新最近操作时间失败：{e}"))?;
+        Ok(())
     })
 }
 
