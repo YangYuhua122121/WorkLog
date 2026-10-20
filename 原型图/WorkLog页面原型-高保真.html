@@ -55,12 +55,12 @@
     --btn-bg:#3a3a3c; --btn-bg-hover:#464648; --btn-fg:rgba(255,255,255,.90);
 
     --pri-hi-bg:rgba(255,69,58,.16); --pri-hi-line:rgba(255,69,58,.30); --pri-hi-fg:#ff9a90;
-    --pri-mid-bg:rgba(255,159,10,.14); --pri-mid-line:rgba(255,159,10,.28); --pri-mid-fg:#ffc46b;
+    --pri-mid-bg:rgba(48,209,88,.18); --pri-mid-line:rgba(48,209,88,.34); --pri-mid-fg:#8ce6ac;
 
     /* 项目配色（甘特 / 扇形共用） */
     --pc1:#2f7ce0; --pc2:#6a63d8; --pc3:#3fa3c4; --pc4:#b8813a; --pc5:#bf5f78; --pc6:#4b9a62;
     --done-bg:rgba(94,92,230,.22); --done-fg:#b3b1ff;
-    --pri-lo-bg:rgba(10,132,255,.14); --pri-lo-line:rgba(10,132,255,.30); --pri-lo-fg:#8ac4ff;
+    --pri-lo-bg:rgba(48,209,88,.09); --pri-lo-line:rgba(48,209,88,.22); --pri-lo-fg:#79d99b;
 
     --sub-bg:rgba(255,255,255,.04); --flash-bg:rgba(10,132,255,.18); --flash-line:rgba(10,132,255,.36);
 
@@ -220,7 +220,7 @@
   input:disabled,select:disabled{color:var(--t3); background:var(--well);}
 
   /* ================= 数据表（P5-1） ================= */
-  .table-scroll{flex:1; overflow-y:auto; position:relative; min-height:0; scrollbar-gutter:stable;}
+  .table-scroll{flex:1; overflow-y:auto; overflow-x:hidden; position:relative; min-height:0; scrollbar-gutter:stable;}
   /* 面板展开期间冻结数据表（滚轮 / 触摸 / 拖动滚动条都不再滚动） */
   .table-scroll.is-locked{overflow-y:hidden;}
   table{width:100%; border-collapse:collapse; table-layout:fixed;}
@@ -233,13 +233,19 @@
   }
   .th-filter{cursor:pointer; transition:color .2s ease-out, background-color .2s ease-out;}
   .th-filter:hover{color:var(--t1);}
-  .th-filter .caret{font-size:0.75rem; margin-left:3px; color:var(--t4);}
-  .th-filter.is-active{color:var(--t1); background:var(--fill-1);}
-  .th-filter.is-active .caret{color:var(--accent);}
+  .th-filter .caret{
+    display:inline-block; width:0; height:0; margin-left:6px; vertical-align:middle;
+    border-left:5.5px solid transparent; border-right:5.5px solid transparent;
+    border-top:6px solid var(--t4);
+    transition:border-top-color .2s ease-out;
+  }
+  /* 注意：这里不能用 background 简写，否则会把表头不透明底色重置成半透明（文字会与行文字重叠） */
+  .th-filter.is-active{color:var(--t1); box-shadow:inset 0 0 0 100px var(--fill-1);}
+  .th-filter.is-active .caret{border-top-color:var(--accent);}
   .th-sort{cursor:pointer; transition:color .2s ease-out, background-color .2s ease-out;}
   .th-sort:hover{color:var(--t1);}
   .th-sort .arrow{font-size:0.75rem; margin-left:3px; opacity:.45;}
-  .th-sort.is-active{color:var(--t1); background:var(--fill-1);}
+  .th-sort.is-active{color:var(--t1); box-shadow:inset 0 0 0 100px var(--fill-1);}
   .th-sort.is-active .arrow{opacity:1; color:var(--accent);}
   .hdr-menu{
     position:absolute; display:none; z-index:30;
@@ -268,6 +274,8 @@
   .tbody tr{cursor:pointer; transition:background-color .2s ease-out;}
   .tbody tr:hover{background:var(--fill-hover);}
   .tbody tr.selected{background:var(--fill-3);}
+  /* 上滑面板打开时，取消选中行高亮，避免与面板抢层级；左侧状态色条保留 */
+  .table-scroll.is-sheet-open tbody tr.selected td{background-color:transparent;}
   .tbody tr.selected td:first-child{box-shadow:inset 2px 0 0 var(--strip,var(--accent));}
   .tbody tr.blank td{border-bottom:1px solid var(--line-soft);}
   .tbody tr.blank--new td{background:var(--fill-1);}
@@ -281,7 +289,7 @@
   .badge.pri-高{background:var(--pri-hi-bg); border-color:var(--pri-hi-line); color:var(--pri-hi-fg);}
   .badge.pri-中{background:var(--pri-mid-bg); border-color:var(--pri-mid-line); color:var(--pri-mid-fg);}
   .badge.pri-低{background:var(--pri-lo-bg); border-color:var(--pri-lo-line); color:var(--pri-lo-fg);}
-  .col-proj{width:33%;} .col-task{width:30%;} .col-ddl{width:24%;} .col-pri{width:13%;}
+  .col-proj{width:32%;} .col-task{width:29%;} .col-ddl{width:20%;} .col-pri{width:19%;}
 
   /* ================= 上滑面板（P4） ================= */
   .sheet{
@@ -454,7 +462,7 @@
   .tri button:hover{background:var(--fill-1); color:var(--t1);}
   .tri button.active[data-v="高"]{background:var(--pri-hi-bg);color:var(--pri-hi-fg);font-weight:600;}
   .tri button.active[data-v="中"]{background:var(--pri-mid-bg);color:var(--pri-mid-fg);font-weight:600;}
-  .tri button.active[data-v="低"]{background:var(--accent-bg);color:var(--accent-fg);font-weight:600;}
+  .tri button.active[data-v="低"]{background:var(--pri-lo-bg);color:var(--pri-lo-fg);font-weight:600;}
   .tri button.active[data-v="未完成"]{background:var(--accent-bg);color:var(--accent-fg);font-weight:600;}
   .tri button.active[data-v="已完成"]{background:var(--done-bg);color:var(--done-fg);font-weight:600;}
 
@@ -642,11 +650,11 @@
     --btn-bg:#ffffff; --btn-bg-hover:#f0f0f3; --btn-fg:rgba(0,0,0,.85);
 
     --pri-hi-bg:rgba(255,59,48,.10); --pri-hi-line:rgba(255,59,48,.26); --pri-hi-fg:#c0211a;
-    --pri-mid-bg:rgba(255,149,0,.13); --pri-mid-line:rgba(255,149,0,.30); --pri-mid-fg:#955700;
+    --pri-mid-bg:rgba(52,199,89,.16); --pri-mid-line:rgba(52,199,89,.34); --pri-mid-fg:#17753a;
 
     --pc1:#2f6fd0; --pc2:#5f57c4; --pc3:#2f8aa6; --pc4:#9c6a24; --pc5:#a9516c; --pc6:#35804b;
     --done-bg:rgba(88,86,214,.12); --done-fg:#3f3dbb;
-    --pri-lo-bg:rgba(0,113,227,.10); --pri-lo-line:rgba(0,113,227,.26); --pri-lo-fg:#0060c7;
+    --pri-lo-bg:rgba(52,199,89,.08); --pri-lo-line:rgba(52,199,89,.20); --pri-lo-fg:#2f8f57;
 
     --sub-bg:rgba(0,0,0,.03);
 
@@ -777,10 +785,10 @@
               <colgroup><col class="col-proj"><col class="col-task"><col class="col-ddl"><col class="col-pri"></colgroup>
               <thead>
                 <tr>
-                  <th data-filter="proj" class="th-filter">项目名 <span class="caret">▾</span></th>
+                  <th data-filter="proj" class="th-filter">项目名 <span class="caret"></span></th>
                   <th>任务名</th>
                   <th data-sort="ddl" class="th-sort">DDL <span class="arrow"></span></th>
-                  <th data-filter="pri" class="th-filter">优先级 <span class="caret">▾</span></th>
+                  <th data-filter="pri" class="th-filter">优先级 <span class="caret"></span></th>
                 </tr>
               </thead>
               <tbody class="tbody" id="tbody"></tbody>
@@ -1270,6 +1278,7 @@ scrollEl.addEventListener('touchmove', e=>{ if(anySheetOpen()) e.preventDefault(
 /* 面板开合时同步冻结 / 解冻（含拖动滚动条） */
 const sheetObserver = new MutationObserver(()=>{
   scrollEl.classList.toggle('is-locked', anySheetOpen());
+  scrollEl.classList.toggle('is-sheet-open', anySheetOpen());
 });
 $$('.sheet').forEach(s=>sheetObserver.observe(s,{attributes:true,attributeFilter:['class']}));
 const FILTER_DEFS = {
