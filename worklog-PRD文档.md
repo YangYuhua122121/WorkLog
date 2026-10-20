@@ -4,7 +4,7 @@
 
 文档信息：workLog 基本产品设计文档
 
-文档版本：v0.29
+文档版本：v0.30
 
 创建时间：2026-10-13
 
@@ -54,6 +54,7 @@
 | v0.27   | 2026-10-20 | 杨与桦 | 修复表头激活态把不透明底色重置为半透明的问题（DDL 排序 / 筛选激活时行文字会透到字段栏）；筛选下拉箭头改用更大的实心三角；优先级列加宽避免箭头被裁切；主面板禁止左右滚动；优先级「中 / 低」改绿色系（高保持红）；上滑面板打开时取消选中行高亮（保留左侧状态色条），避免与面板抢层级 |
 | v0.28   | 2026-10-20 | 杨与桦 | 优先级「中」改回橙色、「低」保留绿色、「高」红色；字段栏的排序箭头与筛选三角统一为实心三角（排序三角略大一号，激活时变系统蓝并翻转方向）；悬浮球「空闲 / 工作中 / 任务名」改用衬线体 |
 | v0.29   | 2026-10-20 | 杨与桦 | 悬浮球文字回到无衬线；深色主题下上滑面板的顶栏 / 底栏改为**比中央更浅**（浅色主题保持更深，两者都朝「离主面板更远」的方向拉开）；汇总看板改为**毛玻璃质感**（条块 / 扇形半透明填充 + 实色描边 + 同色系文字，与保存 / 取消按钮同一套语言）；修复主面板被误拖动后无法复位的问题（拖动阈值 4px→8px，双击悬浮球复位） |
+| v0.30   | 2026-10-20 | 杨与桦 | 新增 F5-1「报告生成配置」：报告由**固定格式化模板配置文件**（report-template.yaml，定结构与格式）与**报告撰写 Skill 文件**（report-skill.md，定语言与写法）共同决定，两个文件随仓库提供并可在「设置 · 报告生成配置」中查看路径、打开编辑；读取失败回退内置默认模板 |
 
 # 需求概述
 
@@ -391,6 +392,170 @@ flowchart TD
 - 报告默认按固定模板生成；点击「AI 增强」可调用大模型重写，无 API 配置时提示并回退固定模板；
 - 报告支持一键复制到剪贴板。
 
+### F5-1 报告生成配置（模板文件 + Skill 文件）
+
+报告由**两个可编辑的配置文件**共同决定，二者随应用放在配置目录，用户可在「设置 · 报告生成配置」中查看路径并直接打开编辑：
+
+| 文件 | 作用 | 决定什么 |
+| --- | --- | --- |
+| `配置/report-template.yaml` | **固定格式化模板配置** | 报告骨架：章节顺序、每章取哪些字段、字段怎么排版、空值占位、时长 / 占比 / 日期格式、硬性取数规则 |
+| `配置/report-skill.md` | **报告撰写 Skill 文件** | 语言层规则：改写步骤、硬性约束（不得增删事实、不得改数字）、文风、篇幅、输出格式 |
+
+工作链路：**数据 → 模板配置渲染初稿 →（可选）Skill 改写 → 报告**。
+
+- 模板配置**不涉及措辞**，只负责结构与格式；Skill 文件**不涉及取数**，只负责表达；
+- 未配置 API Key、调用失败或文件缺失时，一律**回退内置默认模板**，报告仍可正常生成，不阻塞使用；
+- 章节的增删、字段的取舍、格式的变更都在模板配置里完成；文风调整在 Skill 文件里完成，二者互不干扰。
+
+**1）固定格式化模板配置文件 `配置/report-template.yaml`**
+
+```yaml
+meta:
+  version: 1
+  name: 默认报告模板
+  locale: zh-CN
+  timezone: local
+  encoding: UTF-8
+
+periods:
+  当日:
+    title: "{date} 工作日报"
+    label: 当日
+    sections: [investment, main_output, next_goal, todo]
+  本周:
+    title: "第 {week} 周 周报"
+    label: 本周
+    sections: [investment, main_output, next_goal, todo]
+  本月:
+    title: "{year} 年 {month} 月 月报"
+    label: 本月
+    sections: [investment, main_output, next_goal, todo]
+  上周:
+    title: "第 {week} 周 周报"
+    label: 上周
+    sections: [investment, main_output, next_goal, todo]
+  上月:
+    title: "{year} 年 {month} 月 月报"
+    label: 上月
+    sections: [investment, main_output, next_goal, todo]
+
+sections:
+  - id: investment
+    title: "{period_label}投入"
+    type: paragraph
+    source: stages
+    group_by: project
+    item_template: "{project_name} · {task_name}（{duration}）"
+    joiner: "；"
+    tail: "。"
+    empty_text: "（本周期无记录）"
+  - id: main_output
+    title: 主要产出
+    type: list
+    source: stages
+    item_template: "{result}"
+    joiner: "；"
+    dedupe: true
+    max_items: 12
+    empty_text: "（本周期暂无阶段成果）"
+  - id: next_goal
+    title: 下一目标
+    type: list
+    source: stages
+    item_template: "{project_name} · {task_name}：{next_goal}"
+    joiner: "；"
+    dedupe: true
+    max_items: 8
+    empty_text: "（未填写下一目标）"
+  - id: todo
+    title: 待办与风险
+    type: list
+    source: project_task
+    filter:
+      status: 未完成
+    sort:
+      by: priority
+      order: asc
+    item_template: "[{priority}] {project_name} · {task_name}（DDL {due_date}）"
+    empty_text: "（无未完成事项）"
+
+formats:
+  date: "YYYY-MM-DD"
+  duration: "{hours} 小时 {minutes} 分钟"
+  percent: "{value}%"
+  int: "{value}"
+
+rules:
+  - 只使用数据源里真实存在的字段，不推断、不补写未记录的内容
+  - 阶段成果 / 下一目标为空时使用该章节的 empty_text 占位，不留空行
+  - 时长统一走 formats.duration，不出现「3.5h」「3小时30分」等混合格式
+  - 占比四舍五入保留一位小数，各项占比合计为 100%
+  - 项目名 / 任务名使用数据库中的原始名称，不改写、不缩写
+  - 章节顺序、标题文字以本文件的定义为准，AI 不得增删章节
+
+ai:
+  enabled: true
+  skill_file: report-skill.md      # 与本文件同目录
+  max_tokens: 2000
+  temperature: 0.3
+  keep_structure: true             # 保留本模板的章节与顺序
+  fallback_to_template: true       # 调用失败时回退初稿
+```
+
+**2）报告撰写 Skill 文件 `配置/report-skill.md`**
+
+```markdown
+---
+name: worklog-report-writer
+description: 把 workLog 按 report-template.yaml 渲染出的报告初稿改写成简洁、专业的书面报告；只做表达层改写，不增删事实、不改动任何数字。
+version: 1
+applies_to: report generation
+input: [template_draft, structured_data, period]
+output: markdown_text
+---
+
+# 报告撰写 Skill
+
+## 何时使用
+在「AI 增强」被触发、且应用已配置 API Key 时使用。调用方会把三样东西交给你：
+1. **模板初稿**（template_draft）：已经按 report-template.yaml 渲染好的结构化文本；
+2. **结构化数据**（structured_data）：该周期的阶段明细、项目-任务、聚合统计；
+3. **周期信息**（period）：周期类型、日期范围、时区。
+
+## 目标
+在完全保留事实与结构的前提下，把初稿改写成可以直接发出去的书面报告：语句通顺、条理清楚、长度合适。
+
+## 处理步骤
+1. 通读初稿与结构化数据，确认所有数字、时长、占比、日期、项目名、任务名；
+2. 照抄初稿的章节顺序与标题文字，不增删章节、不改标题、不改顺序；
+3. 逐章节改写表达：合并重复表述、去掉口语与冗余主语、调整语序；
+4. 数字类内容（时长、占比、阶段数、日期、DDL）原样搬运，只允许改变呈现形式；
+5. 初稿中的空值占位符原样保留，不要替用户编内容；
+6. 输出纯文本 / Markdown，不加前言与结语。
+
+## 硬性约束
+- 不得新增输入中不存在的事实、推测、评价、风险判断或改进建议；
+- 不得改写、换算、四舍五入任何数字与时长；
+- 不得把「下一目标」写成承诺或对进度的判断；
+- 不得合并 / 拆分项目名、任务名、阶段成果条目；
+- 语言：简体中文书面语，陈述句；不使用第一人称；不使用感叹号、表情、网络用语；
+- 篇幅：单个条目不超过 3 行；整体长度与初稿相当（可压缩 20% 以内，但不得删信息）。
+
+## 风格示例
+✅ 正确：今日投入：交通仿真平台二期 · 轨迹数据处理（3 小时 30 分钟）、车辆检测模型训练（2 小时）。
+❌ 错误：今天效率爆表！🎉 顺利完成轨迹处理框架搭建，势头非常好！（新增了输入里没有的评价与情绪）
+
+## 输出格式
+与模板初稿完全一致的章节结构：<报告标题> + 各章节标题与正文。
+```
+
+**3）验收标准**
+
+- 「设置 · 报告生成配置」显示两个文件路径，且可一键打开编辑；
+- 修改模板配置后，报告的章节、字段、格式随之变化；修改 Skill 文件后，AI 改写的文风随之变化；
+- 无 API Key / 调用失败 / 配置文件缺失时，报告回退到内置默认模板并正常输出；
+- AI 改写不得改变模板的章节顺序与任何数字。
+
 # 页面原型
 
 ## 基本风格
@@ -571,6 +736,7 @@ flowchart TD
 - **外观**：面板顶部为「深色 / 浅色 / 跟随系统」三选一（分段控件，占满整行），切换**即时生效**并作用于全部界面；默认深色；选「跟随系统」时随系统外观实时切换；深 / 浅两套主题只反转明度方向与上滑面板递进一档后的色值，其余规则一致。
 - **界面字号**：外观分区下方为一条**字号滑条**（14–20px，默认 16px），拖动即时生效，只缩放文字不改变布局；界面所有字号统一以根字号为基准。
 - **防遗忘 · 正常工作时间**：**上班时间 / 下班时间**两个下拉列表（半小时粒度）用于界定「正常工作时间」；**连续工作上限 x（分钟）**与**自动停止倒计时 y（秒）**两个数字输入框，可直接填数；不提供提醒窗预览按钮。说明文案：正常工作时间之外仍在计时，连续工作超过 x 分钟弹出提醒；提醒窗出现后 y 秒内无操作，将自动停止计时并生成本次阶段记录。
+- **报告生成配置**：列出报告所依赖的两个配置文件 —— **固定格式化模板配置文件**（`配置/report-template.yaml`）与**报告撰写 Skill 文件**（`配置/report-skill.md`），显示各自路径并提供「打开」按钮直接用系统默认程序编辑；两者随应用放在配置目录，读取失败时回退内置默认模板，报告仍可正常生成（详见 F5-1）。
 
 ## P9 计时提醒窗口
 

@@ -449,6 +449,11 @@
   /* 扇形分块：半透明填充 + 实色描边（描边色由 JS 按项目给） */
   .pie-sec{stroke-width:1;}
 
+  /* 设置 · 文件路径行（模板 / Skill） */
+  .path-row{display:flex; gap:8px; align-items:center;}
+  .path-row input{flex:1; min-width:0;}
+  .path-row .btn{flex:0 0 auto; padding:6px 10px;}
+
   /* 设置 · 字号滑条 */
   .fld input[type="range"]{
     -webkit-appearance:none; appearance:none; width:100%; height:22px;
@@ -1040,6 +1045,25 @@
                 <div class="fld full"><label>Base URL</label><input type="text" id="setBase" placeholder="https://api.openai.com/v1"></div>
                 <div class="fld full"><label>API Key（首版存本地配置文件）</label><input type="password" id="setKey" placeholder="sk-..."></div>
                 <div class="fld full"><label>模型名</label><input type="text" id="setModel" value="gpt-4o-mini"></div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="meta-line" style="margin-top:0"><span>报告生成配置</span><span class="note">模板 + Skill 两个文件</span></div>
+              <div class="field-grid">
+                <div class="fld full"><label>固定格式化模板配置文件</label>
+                  <div class="path-row">
+                    <input type="text" id="setTemplatePath" value="配置/report-template.yaml" readonly>
+                    <button class="btn" id="btnOpenTemplate" type="button">打开</button>
+                  </div>
+                </div>
+                <div class="fld full"><label>报告撰写 Skill 文件</label>
+                  <div class="path-row">
+                    <input type="text" id="setSkillPath" value="配置/report-skill.md" readonly>
+                    <button class="btn" id="btnOpenSkill" type="button">打开</button>
+                  </div>
+                </div>
+                <div class="fld full"><div class="note">模板文件定义报告骨架与取数规则，Skill 文件定义语言与写法；两者随应用放在配置目录，读取失败时回退内置默认模板，报告仍可正常生成。</div></div>
               </div>
             </div>
 
@@ -2332,6 +2356,13 @@ function applyFontSize(px){
 }
 fsRange.addEventListener('input', ()=>applyFontSize(fsRange.value));
 applyFontSize(fsRange.value);
+
+/* 报告生成配置：打开模板 / Skill 文件（原型演示仅提示路径） */
+function openConfigFile(el, what){
+  toast('（原型演示）实际应用将用系统默认程序打开：' + el.value);
+}
+$('#btnOpenTemplate').addEventListener('click', ()=>openConfigFile($('#setTemplatePath'), '模板'));
+$('#btnOpenSkill').addEventListener('click', ()=>openConfigFile($('#setSkillPath'), 'Skill'));
 
 $('#themeSeg').addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b) return;

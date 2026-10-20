@@ -1,7 +1,7 @@
 # workLog 技术方案
 
-> 配套文档：`worklog-PRD文档.md`（v0.20）
-> 本文件为 v0.20 PRD 对应的初版技术方案，聚焦「怎么落地」，不展开需求。
+> 配套文档：`worklog-PRD文档.md`（v0.30）
+> 本文件为 v0.30 PRD 对应的技术方案，聚焦「怎么落地」，不展开需求。
 
 ## 1. 技术选型
 
@@ -56,11 +56,19 @@ worklog/
 │  │  │  ├─ project.rs         # 项目-任务维度 CRUD
 │  │  │  └─ stage.rs           # 阶段明细 CRUD / 聚合
 │  │  ├─ stats.rs              # 日/周/月聚合查询
+│  │  ├─ report.rs             # 模板渲染（report-template.yaml）
 │  │  └─ llm.rs                # OpenAI 兼容 HTTP 客户端
 │  ├─ migrations/              # 数据库迁移（可选 tauri-plugin-sql）
 │  └─ tauri.conf.json
+├─ resources/                  # 随包资源（首次启动复制到配置目录）
+│  ├─ report-template.yaml     # 报告固定格式化模板配置
+│  └─ report-skill.md          # 报告撰写 Skill
 └─ package.json
 ```
+
+> 仓库内另存一份同内容的 `配置/report-template.yaml`、`配置/report-skill.md`，便于评审与直接编辑；打包时以 `resources/` 为准。
+>
+> 用户配置目录：macOS `~/Library/Application Support/workLog/`、Windows `%APPDATA%\workLog\`，下辖 `worklog.db`、`config.toml`（API Key 等）、`config/`（上面两个报告配置文件）。
 
 ## 4. 数据模型（两张表）
 
@@ -150,11 +158,182 @@ CREATE INDEX idx_stage_ended ON stage(ended_at);
 
 ## 8. 报告生成与 LLM
 
-- **固定模板**：Rust 按周期拼接（项目、时长、成果、下一目标），无需联网。
-- **AI 增强**：WebView 点「AI 重写」→ Rust 读取配置（Base URL / Key / 模型名）→ OpenAI 兼容 `POST /v1/chat/completions`，把该周期聚合统计作为上下文（发送前明确提示）。
-- 失败 / 未配置 Key：提示并**回退固定模板**，不阻塞。
+报告生成走**两段式**：`固定格式化模板配置` 渲染出初稿 →（可选）`报告撰写 Skill` 做语言层改写。两个配置文件随应用分发、放在用户配置目录，可直接编辑。
+
+**8.1 两个配置文件**
+
+| 文件 | 角色 | 内容 |
+| --- | --- | --- |
+| `report-template.yaml` | 固定格式化模板配置 | 章节顺序、取数字段、字段排版、空值占位、时长 / 占比 / 日期格式、硬性取数规则、AI 参数 |
+| `report-skill.md` | 报告撰写 Skill | 改写步骤、硬性约束（不得增删事实 / 改数字）、文风、篇幅、输出格式 |
+
+- **职责边界**：模板只管结构与格式，Skill 只管表达；Skill 不得增删模板章节。
+- **文件位置**：随包资源在 `resources/`；首次启动复制到应用配置目录
+  - macOS：`~/Library/Application Support/workLog/config/`
+  - Windows：`%APPDATA%\workLog\config\`
+  - 用户改坏了可在设置里「恢复默认」（重新复制）。
+- **读取时机**：生成报告时读取并缓存（按文件 mtime 失效）；解析用 `serde_yaml`，任一文件缺失 / 解析失败 → 回退内置默认模板，报告照常生成。
+
+**8.2 生成流程**
+
+1. Rust 按周期聚合阶段明细与项目-任务数据；
+2. Rust 读 `report-template.yaml` → 渲染初稿（`{project_name}`、`{duration}`、`{result}` 等占位符按 `formats` 规则替换）；
+3. 点「AI 增强」→ 若已配置 API Key：组装 prompt = **Skill 正文** + **模板初稿** + **结构化数据（JSON）** + **周期信息**，走 OpenAI 兼容 `POST /v1/chat/completions`；
+4. 失败 / 未配置 Key / 模型输出异常 → **回退初稿**，不阻塞；
+5. 前端展示并支持一键复制。
+
+**8.3 其他**
+
 - 复制：WebView 剪贴板（应用内，无浏览器）；报告可导出文本。
 - 安全：Key 首版存本地配置文件，后续迁移系统钥匙串（macOS Keychain / Windows Credential Manager）。
+
+**8.4 随包提供的默认文件内容**
+
+`resources/report-template.yaml`：
+
+```yaml
+meta:
+  version: 1
+  name: 默认报告模板
+  locale: zh-CN
+  timezone: local
+  encoding: UTF-8
+
+periods:
+  当日:
+    title: "{date} 工作日报"
+    label: 当日
+    sections: [investment, main_output, next_goal, todo]
+  本周:
+    title: "第 {week} 周 周报"
+    label: 本周
+    sections: [investment, main_output, next_goal, todo]
+  本月:
+    title: "{year} 年 {month} 月 月报"
+    label: 本月
+    sections: [investment, main_output, next_goal, todo]
+  上周:
+    title: "第 {week} 周 周报"
+    label: 上周
+    sections: [investment, main_output, next_goal, todo]
+  上月:
+    title: "{year} 年 {month} 月 月报"
+    label: 上月
+    sections: [investment, main_output, next_goal, todo]
+
+sections:
+  - id: investment
+    title: "{period_label}投入"
+    type: paragraph
+    source: stages
+    group_by: project
+    item_template: "{project_name} · {task_name}（{duration}）"
+    joiner: "；"
+    tail: "。"
+    empty_text: "（本周期无记录）"
+  - id: main_output
+    title: 主要产出
+    type: list
+    source: stages
+    item_template: "{result}"
+    joiner: "；"
+    dedupe: true
+    max_items: 12
+    empty_text: "（本周期暂无阶段成果）"
+  - id: next_goal
+    title: 下一目标
+    type: list
+    source: stages
+    item_template: "{project_name} · {task_name}：{next_goal}"
+    joiner: "；"
+    dedupe: true
+    max_items: 8
+    empty_text: "（未填写下一目标）"
+  - id: todo
+    title: 待办与风险
+    type: list
+    source: project_task
+    filter:
+      status: 未完成
+    sort:
+      by: priority
+      order: asc
+    item_template: "[{priority}] {project_name} · {task_name}（DDL {due_date}）"
+    empty_text: "（无未完成事项）"
+
+formats:
+  date: "YYYY-MM-DD"
+  duration: "{hours} 小时 {minutes} 分钟"
+  percent: "{value}%"
+  int: "{value}"
+
+rules:
+  - 只使用数据源里真实存在的字段，不推断、不补写未记录的内容
+  - 阶段成果 / 下一目标为空时使用该章节的 empty_text 占位，不留空行
+  - 时长统一走 formats.duration，不出现「3.5h」「3小时30分」等混合格式
+  - 占比四舍五入保留一位小数，各项占比合计为 100%
+  - 项目名 / 任务名使用数据库中的原始名称，不改写、不缩写
+  - 章节顺序、标题文字以本文件的定义为准，AI 不得增删章节
+
+ai:
+  enabled: true
+  skill_file: report-skill.md      # 与本文件同目录
+  max_tokens: 2000
+  temperature: 0.3
+  keep_structure: true             # 保留本模板的章节与顺序
+  fallback_to_template: true       # 调用失败时回退初稿
+```
+
+`resources/report-skill.md`：
+
+```markdown
+---
+name: worklog-report-writer
+description: 把 workLog 按 report-template.yaml 渲染出的报告初稿改写成简洁、专业的书面报告；只做表达层改写，不增删事实、不改动任何数字。
+version: 1
+applies_to: report generation
+input: [template_draft, structured_data, period]
+output: markdown_text
+---
+
+# 报告撰写 Skill
+
+## 何时使用
+在「AI 增强」被触发、且应用已配置 API Key 时使用。调用方会把三样东西交给你：
+1. **模板初稿**（template_draft）：已经按 report-template.yaml 渲染好的结构化文本；
+2. **结构化数据**（structured_data）：该周期的阶段明细、项目-任务、聚合统计；
+3. **周期信息**（period）：周期类型、日期范围、时区。
+
+## 目标
+在完全保留事实与结构的前提下，把初稿改写成可以直接发出去的书面报告：语句通顺、条理清楚、长度合适。
+
+## 处理步骤
+1. 通读初稿与结构化数据，确认所有数字、时长、占比、日期、项目名、任务名；
+2. 照抄初稿的章节顺序与标题文字，不增删章节、不改标题、不改顺序；
+3. 逐章节改写表达：合并重复表述、去掉口语与冗余主语、调整语序；
+4. 数字类内容（时长、占比、阶段数、日期、DDL）原样搬运，只允许改变呈现形式；
+5. 初稿中的空值占位符原样保留，不要替用户编内容；
+6. 输出纯文本 / Markdown，不加前言与结语。
+
+## 硬性约束
+- 不得新增输入中不存在的事实、推测、评价、风险判断或改进建议；
+- 不得改写、换算、四舍五入任何数字与时长；
+- 不得把「下一目标」写成承诺或对进度的判断；
+- 不得合并 / 拆分项目名、任务名、阶段成果条目；
+- 语言：简体中文书面语，陈述句；不使用第一人称；不使用感叹号、表情、网络用语；
+- 篇幅：单个条目不超过 3 行；整体长度与初稿相当（可压缩 20% 以内，但不得删信息）。
+
+## 风格示例
+✅ 正确：今日投入：交通仿真平台二期 · 轨迹数据处理（3 小时 30 分钟）、车辆检测模型训练（2 小时）。
+❌ 错误：今天效率爆表！🎉 顺利完成轨迹处理框架搭建，势头非常好！（新增了输入里没有的评价与情绪）
+
+## 输出格式
+与模板初稿完全一致的章节结构：<报告标题> + 各章节标题与正文。
+```
+
+**8.5 设置项对应**
+
+- 「设置 · 报告生成配置」显示两个文件的绝对路径，并提供「打开」（`tauri-plugin-opener` / `open` crate 调系统默认程序）与「恢复默认」（重新复制随包文件）两个动作。
 
 ## 9. 窗口与托盘
 
@@ -176,7 +355,7 @@ CREATE INDEX idx_stage_ended ON stage(ended_at);
 | M1   | Tauri 骨架 + 两张表 + 项目-任务新建/编辑（F1/F4） |
 | M2   | 计时服务 + 提醒看门狗 + 阶段记录（F2/F3）          |
 | M3   | 数据看板 + 导出（F5 图表部分）                    |
-| M4   | 固定模板 + LLM 增强报告 + 托盘/打包（F5 报告）    |
+| M4   | 固定模板 + LLM 增强报告 + 托盘/打包（F5 报告，含 report-template.yaml / report-skill.md 两个配置文件） |
 
 ## 12. 风险与对策
 
