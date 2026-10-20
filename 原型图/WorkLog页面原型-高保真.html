@@ -58,7 +58,13 @@
     --pri-mid-bg:rgba(255,159,10,.16); --pri-mid-line:rgba(255,159,10,.32); --pri-mid-fg:#ffc46b;
 
     /* 项目配色（甘特 / 扇形共用） */
-    --pc1:#2f7ce0; --pc2:#6a63d8; --pc3:#3fa3c4; --pc4:#b8813a; --pc5:#bf5f78; --pc6:#4b9a62;
+    /* 项目调色组：实色（描边）/ 半透明填充（毛玻璃感）/ 条块文字色 */
+    --pc1:#2f7ce0; --pc1-f:rgba(47,124,224,.55);  --pc1-t:#9ec9f7;
+    --pc2:#6a63d8; --pc2-f:rgba(106,99,216,.55);  --pc2-t:#b3aef0;
+    --pc3:#3fa3c4; --pc3-f:rgba(63,163,196,.55);  --pc3-t:#9ad8e6;
+    --pc4:#b8813a; --pc4-f:rgba(184,129,58,.55);  --pc4-t:#e8bd85;
+    --pc5:#bf5f78; --pc5-f:rgba(191,95,120,.55);  --pc5-t:#eda2b4;
+    --pc6:#4b9a62; --pc6-f:rgba(75,154,98,.55);   --pc6-t:#9ad6ac;
     --done-bg:rgba(94,92,230,.22); --done-fg:#b3b1ff;
     --pri-lo-bg:rgba(48,209,88,.09); --pri-lo-line:rgba(48,209,88,.22); --pri-lo-fg:#79d99b;
 
@@ -140,9 +146,9 @@
     transition:border-radius .2s ease-out, width .2s ease-out, height .2s ease-out;
   }
   .clip.is-timing .rec-btn .dot{width:10px;height:10px;border-radius:2px;background:#ff453a;}
-  .clip__state{font-family:var(--font-serif); font-size:0.875rem;font-weight:600;white-space:nowrap;color:var(--t1); letter-spacing:.04em;}
+  .clip__state{font-size:0.812rem;font-weight:600;white-space:nowrap;color:var(--t1);}
   .clip__task{
-    display:block; font-family:var(--font-serif); font-size:0.75rem; color:var(--t2); max-width:300px;
+    display:block; font-size:0.719rem; color:var(--t2); max-width:300px;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .clip__timer{font-family:var(--font-mono);font-size:0.844rem;font-weight:600;display:none;color:var(--t1);}
@@ -440,8 +446,8 @@
   .stage-list tr.stage-row.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent);}
   .stage-detail{border-top:1px solid var(--line-soft);margin-top:14px;padding-top:2px;}
 
-  /* 扇形分块描边与卡片同色，随主题变化 */
-  .pie-sec{stroke:var(--surface);stroke-width:1;}
+  /* 扇形分块：半透明填充 + 实色描边（描边色由 JS 按项目给） */
+  .pie-sec{stroke-width:1;}
 
   /* 设置 · 字号滑条 */
   .fld input[type="range"]{
@@ -518,17 +524,17 @@
   .gantt__grid{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft);}
   .gantt__bar{
     position:absolute;top:2px;bottom:2px;
-    border-radius:5px;font-size:0.594rem;color:#fff;
+    border-radius:5px;font-size:0.594rem;color:#fff;border:1px solid transparent;
     padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     display:flex;align-items:center;cursor:default;
     transition:background-color .2s ease-out;
   }
-  .gantt__bar.pc1{background:var(--pc1);}
-  .gantt__bar.pc2{background:var(--pc2);}
-  .gantt__bar.pc3{background:var(--pc3);}
-  .gantt__bar.pc4{background:var(--pc4);}
-  .gantt__bar.pc5{background:var(--pc5);}
-  .gantt__bar.pc6{background:var(--pc6);}
+  .gantt__bar.pc1{background:var(--pc1-f); border-color:var(--pc1); color:var(--pc1-t);}
+  .gantt__bar.pc2{background:var(--pc2-f); border-color:var(--pc2); color:var(--pc2-t);}
+  .gantt__bar.pc3{background:var(--pc3-f); border-color:var(--pc3); color:var(--pc3-t);}
+  .gantt__bar.pc4{background:var(--pc4-f); border-color:var(--pc4); color:var(--pc4-t);}
+  .gantt__bar.pc5{background:var(--pc5-f); border-color:var(--pc5); color:var(--pc5-t);}
+  .gantt__bar.pc6{background:var(--pc6-f); border-color:var(--pc6); color:var(--pc6-t);}
   /* 同项目内只做色差（叠加白 / 黑），保持色相一致 */
   .gantt__bar.sh-w1{background-image:linear-gradient(rgba(255,255,255,.20),rgba(255,255,255,.20));}
   .gantt__bar.sh-d1{background-image:linear-gradient(rgba(0,0,0,.16),rgba(0,0,0,.16));}
@@ -538,7 +544,7 @@
   .pie-svg{flex:0 0 132px;width:132px;height:132px;}
   .pie-leg{flex:1;font-size:0.688rem;min-width:0;}
   .leg-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
-  .leg-swat{width:9px;height:9px;border-radius:3px;flex:0 0 auto;}
+  .leg-swat{width:9px;height:9px;border-radius:3px;flex:0 0 auto;border:1px solid var(--line);}
   .leg-name{flex:1;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .leg-pct{color:var(--t3);font-family:var(--font-mono);font-size:0.656rem;}
   .pie-info{font-size:0.656rem;color:var(--t3);margin-top:8px;min-height:14px;}
@@ -661,7 +667,12 @@
     --pri-hi-bg:rgba(255,59,48,.10); --pri-hi-line:rgba(255,59,48,.26); --pri-hi-fg:#c0211a;
     --pri-mid-bg:rgba(255,149,0,.14); --pri-mid-line:rgba(255,149,0,.32); --pri-mid-fg:#955700;
 
-    --pc1:#2f6fd0; --pc2:#5f57c4; --pc3:#2f8aa6; --pc4:#9c6a24; --pc5:#a9516c; --pc6:#35804b;
+    --pc1:#2f6fd0; --pc1-f:rgba(47,111,208,.42);  --pc1-t:#1d569f;
+    --pc2:#5f57c4; --pc2-f:rgba(95,87,196,.42);   --pc2-t:#413a99;
+    --pc3:#2f8aa6; --pc3-f:rgba(47,138,166,.42);  --pc3-t:#1d6b83;
+    --pc4:#9c6a24; --pc4-f:rgba(156,106,36,.42);  --pc4-t:#7a5219;
+    --pc5:#a9516c; --pc5-f:rgba(169,81,108,.42);  --pc5-t:#833f56;
+    --pc6:#35804b; --pc6-f:rgba(53,128,75,.42);   --pc6-t:#2a663c;
     --done-bg:rgba(88,86,214,.12); --done-fg:#3f3dbb;
     --pri-lo-bg:rgba(52,199,89,.08); --pri-lo-line:rgba(52,199,89,.20); --pri-lo-fg:#2f8f57;
 
@@ -687,7 +698,7 @@
   html[data-theme="dark"] .clip__body{
     --surface:#4e4e54;
     --sub-bg:rgba(255,255,255,.055);
-    --chrome:rgba(0,0,0,.22);
+    --chrome:rgba(255,255,255,.07);   /* 深色主题：顶 / 底栏比面板中央更浅 */
     --clip-bg:rgba(78,78,84,.92);
     --field-bg:#2e2e32;
     --well:rgba(0,0,0,.28);
@@ -749,7 +760,7 @@
   <div class="unit" id="unit">
 
     <!-- ============ P2 悬浮球（夹子） ============ -->
-    <div class="clip" id="clip">
+    <div class="clip" id="clip" title="点击展开 / 收起主面板 · 拖动可移动 · 双击回到默认位置">
       <div class="clip__body">
         <div class="clip__row1">
           <button class="rec-btn" id="recBtn" title="开始 / 停止计时"><span class="dot"></span></button>
@@ -1247,7 +1258,7 @@ $('#clip').addEventListener('pointerdown', e=>{
 $('#clip').addEventListener('pointermove', e=>{
   if(!pressStart) return;
   const dx = e.clientX-pressStart.x, dy = e.clientY-pressStart.y;
-  if(!dragging && (Math.abs(dx)>4 || Math.abs(dy)>4)){
+  if(!dragging && (Math.abs(dx)>8 || Math.abs(dy)>8)){
     dragging = true;
     const r = unit.getBoundingClientRect();
     unitBase = {left:r.left, top:r.top};
@@ -1272,6 +1283,13 @@ function endPress(){
   if(!wasDrag) toggleBoard();
 }
 $('#clip').addEventListener('pointerup', endPress);
+/* 双击悬浮球：把浮动的球 + 主面板复位到默认位置 */
+$('#clip').addEventListener('dblclick', e=>{
+  e.stopPropagation();
+  unit.classList.remove('is-moved','is-dragging');
+  unit.style.left=''; unit.style.top='';
+  toast('已回到默认位置');
+});
 $('#clip').addEventListener('pointercancel', ()=>{
   unit.classList.remove('is-dragging');
   dragging=false; pressStart=null;
@@ -2004,11 +2022,16 @@ const SUMMARY = {
     {proj:'文档输出', tasks:[{name:'部署文档', start:18, end:22, h:6, dur:'6h'}]}
   ]}
 };
-/* 配色随主题切换：读取 --pc1..6（项目调色组，深色 / 浅色各一组） */
+/* 配色随主题切换：读取 --pc1..6（实色）/ --pcN-f（半透明填充） */
 function pieColors(){
   const cs = getComputedStyle(document.documentElement);
-  const out = [1,2,3,4,5,6].map(i=>cs.getPropertyValue('--pc'+i).trim());
-  return out.every(Boolean) ? out : ['#4a8fe7','#8b6fd6','#c2802f','#3aa06a','#cd5f7b','#3d95b0'];
+  const out = [];
+  for(let i=1;i<=6;i++){
+    const solid = cs.getPropertyValue('--pc'+i).trim();
+    const fill  = cs.getPropertyValue('--pc'+i+'-f').trim();
+    if(solid && fill) out.push({solid, fill});
+  }
+  return out.length ? out : [{solid:'#2f7ce0',fill:'rgba(47,124,224,.55)'}];
 }
 
 function posPct(v, d){ return ((v-d.base)/d.max)*100; }
@@ -2127,11 +2150,13 @@ function renderPie(d){
   const legend = [];
 
   groups.forEach((g,gi)=>{
-    const color = PIE_COLORS[gi % PIE_COLORS.length];
+    const pc = PIE_COLORS[gi % PIE_COLORS.length];
+    const color = pc.fill;
     const gAng = g.h/total*360;
     const sector = document.createElementNS(NS,'path');
     sector.setAttribute('d', arcPath(cx,cy,r,a,a+gAng));
     sector.setAttribute('fill', color);
+    sector.setAttribute('stroke', pc.solid);
     sector.setAttribute('class','pie-sec');
     sector.style.cursor = 'default';
     sector.addEventListener('mouseenter', ev=>{ showHoverCard(pieTipHtml(g, total), ev); });
@@ -2139,12 +2164,12 @@ function renderPie(d){
     sector.addEventListener('mouseleave', hideHoverCard);
     svg.appendChild(sector);
 
-    legend.push({proj:g.proj, color, pct: g.h/total*100});
+    legend.push({proj:g.proj, color, solid: pc.solid, pct: g.h/total*100});
     a += gAng;
   });
 
   $('#pieLeg').innerHTML = legend.map(l=>
-    `<div class="leg-row"><span class="leg-swat" style="background:${l.color}"></span><span class="leg-name" title="${l.proj}">${l.proj}</span><span class="leg-pct">${fmtPct(l.pct)}</span></div>`
+    `<div class="leg-row"><span class="leg-swat" style="background:${l.color};border-color:${l.solid}"></span><span class="leg-name" title="${l.proj}">${l.proj}</span><span class="leg-pct">${fmtPct(l.pct)}</span></div>`
   ).join('');
 }
 /* 悬浮浮窗：扇形图 / 甘特条块共用一套（即时出现，无延迟无动画） */
