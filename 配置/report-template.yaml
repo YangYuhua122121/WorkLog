@@ -1,120 +1,101 @@
 # ==============================================================
-# workLog · 报告固定格式化模板配置（report-template.yaml）
+# workLog · 报告模板配置（report-template.yaml）
 # --------------------------------------------------------------
-# 作用：定义「报告长什么样」——章节顺序、每个章节取哪些字段、
-#      字段怎么排版、空值怎么占位。Rust 侧读取本文件渲染出初稿，
-#      再把初稿 + 原始数据交给「报告撰写 Skill」做语言层改写。
-# 边界：本文件只管结构与格式，不涉及措辞；措辞规则在 report-skill.md。
-# 修改方式：可直接编辑本文件，保存后在应用内点「重新生成报告」生效。
+# 报告由三部分拼出来：
+#   1) 数据库字段映射：替代字段 → 数据库源字段（一般不用改）
+#   2) 自定义字段：用替代字段拼出来的字符串（可逐条展开成多行）
+#   3) 最终格式化文档：日报 / 周报 / 月报，用 {} 引用上面的字段
+#
+# 占位符约定：
+#   {字段}        单行标量替换，例如 {项目名}
+#   {自定义字段}   自定义字段：text 型替换成一段文字；
+#                  list 型按记录逐条展开成多行（每条记录渲染一次 text）
+#   正文多行用 YAML 块标量 | 书写，换行与缩进原样保留
+#   取值为空时：list 型跳过该条，text 型替换为空字符串
+#   同一行可以连续引用多个字段，如 "{项目名} · {任务名}：{阶段成果}"
+#
+# 报告只写两件事：工作成果、工作计划；时间 / 数字由系统按固定规则
+# 给出，模板里不出现任何具体日期与时长字样。
 # ==============================================================
 
 meta:
-  version: 1
+  version: 2
   name: 默认报告模板
   locale: zh-CN
-  timezone: local
-  encoding: UTF-8
 
 # --------------------------------------------------------------
-# 报告抬头：按周期取不同标题
+# 1. 数据库字段映射
+#    左侧 = 本文件内使用的「替代字段」，右侧 = 数据库源字段
+#    增删字段时只改这一段，下面的自定义字段与文档不用动
 # --------------------------------------------------------------
-periods:
-  当日:
-    title: "{date} 工作日报"
-    label: 当日
-    sections: [investment, main_output, next_goal, todo]
-  本周:
-    title: "第 {week} 周 周报"
-    label: 本周
-    sections: [investment, main_output, next_goal, todo]
-  本月:
-    title: "{year} 年 {month} 月 月报"
-    label: 本月
-    sections: [investment, main_output, next_goal, todo]
-  上周:
-    title: "第 {week} 周 周报"
-    label: 上周
-    sections: [investment, main_output, next_goal, todo]
-  上月:
-    title: "{year} 年 {month} 月 月报"
-    label: 上月
-    sections: [investment, main_output, next_goal, todo]
+fields:
+  日期: period_date
+  周期: period_label
+  项目名: project_name
+  任务名: task_name
+  阶段号: stage_id
+  阶段成果: result
+  下一目标: next_goal
+  时长: duration
+  优先级: priority
+  截止日期: due_date
+  任务状态: status
+  总时长: agg_duration
+  项目数: agg_project_count
+  任务数: agg_task_count
 
 # --------------------------------------------------------------
-# 章节定义：sections 里的 id 在上面按周期引用
-#   type: paragraph | list | table | stats
-#   source: stages（阶段明细）| project_task（项目-任务）| aggregate（聚合结果）
+# 2. 自定义字段
+#    text 型：整个周期只渲染一次
+#    list 型：按记录逐条渲染，每条记录一行
+#    skip_if_empty：指定的替代字段为空时跳过该条
+#    distinct：去掉完全重复的行
 # --------------------------------------------------------------
-sections:
-  - id: investment
-    title: "{period_label}投入"
-    type: paragraph
-    source: stages
-    group_by: project
-    item_template: "{project_name} · {task_name}（{duration}）"
-    joiner: "；"
-    tail: "。"
-    empty_text: "（本周期无记录）"
-
-  - id: main_output
-    title: 主要产出
+custom:
+  工作成果:
     type: list
     source: stages
-    item_template: "{result}"
-    joiner: "；"
-    dedupe: true
-    max_items: 12
-    empty_text: "（本周期暂无阶段成果）"
-
-  - id: next_goal
-    title: 下一目标
+    text: "{项目名} · {任务名}：{阶段成果}"
+    skip_if_empty: 阶段成果
+    distinct: true
+  工作计划:
     type: list
     source: stages
-    item_template: "{project_name} · {task_name}：{next_goal}"
-    joiner: "；"
-    dedupe: true
-    max_items: 8
-    empty_text: "（未填写下一目标）"
-
-  - id: todo
-    title: 待办与风险
-    type: list
-    source: project_task
-    filter:
-      status: 未完成
-    sort:
-      by: priority
-      order: asc
-    item_template: "[{priority}] {project_name} · {task_name}（DDL {due_date}）"
-    empty_text: "（无未完成事项）"
+    text: "{项目名} · {任务名}：{下一目标}"
+    skip_if_empty: 下一目标
+    distinct: true
+  投入概览:
+    type: text
+    source: aggregate
+    text: "本期共投入 {总时长}，覆盖 {项目数} 个项目、{任务数} 个任务。"
 
 # --------------------------------------------------------------
-# 字段格式化规则
+# 3. 最终格式化文档
+#    日报 / 周报 / 月报各一份；正文用块标量 | 多行书写，
+#    每个占位符独占一行时，展开后仍是多行结构
 # --------------------------------------------------------------
-formats:
-  date: "YYYY-MM-DD"
-  duration: "{hours} 小时 {minutes} 分钟"
-  percent: "{value}%"
-  int: "{value}"
+documents:
+  日报:
+    标题: "{日期} 工作日报"
+    正文: |
+      【工作成果】
+      {工作成果}
 
-# --------------------------------------------------------------
-# 取数与排版的硬规则（渲染与 AI 改写都必须遵守）
-# --------------------------------------------------------------
-rules:
-  - 只使用数据源里真实存在的字段，不推断、不补写未记录的内容
-  - 阶段成果 / 下一目标为空时使用该章节的 empty_text 占位，不留空行
-  - 时长统一走 formats.duration，不出现「3.5h」「3小时30分」等混合格式
-  - 占比四舍五入保留一位小数，各项占比合计为 100%
-  - 项目名 / 任务名使用数据库中的原始名称，不改写、不缩写
-  - 章节顺序、标题文字以本文件的定义为准，AI 不得增删章节
+      【工作计划】
+      {工作计划}
+  周报:
+    标题: "{周期} 工作周报"
+    正文: |
+      【本周工作成果】
+      {工作成果}
 
-# --------------------------------------------------------------
-# AI 改写（可选）：未配置 API Key 时跳过，直接输出初稿
-# --------------------------------------------------------------
-ai:
-  enabled: true
-  skill_file: report-skill.md      # 与本文件同目录
-  max_tokens: 2000
-  temperature: 0.3
-  keep_structure: true             # 保留本模板的章节与顺序
-  fallback_to_template: true       # 调用失败时回退初稿
+      【下周工作计划】
+      {工作计划}
+  月报:
+    标题: "{周期} 工作月报"
+    正文: |
+      【本月工作成果】
+      {工作成果}
+
+      【下月工作计划】
+      {工作计划}

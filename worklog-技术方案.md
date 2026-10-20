@@ -61,7 +61,7 @@ worklog/
 │  ├─ migrations/              # 数据库迁移（可选 tauri-plugin-sql）
 │  └─ tauri.conf.json
 ├─ resources/                  # 随包资源（首次启动复制到配置目录）
-│  ├─ report-template.yaml     # 报告固定格式化模板配置
+│  ├─ report-template.yaml     # 报告模板配置（字段映射 / 自定义字段 / 格式化文档）
 │  └─ report-skill.md          # 报告撰写 Skill
 └─ package.json
 ```
@@ -158,14 +158,21 @@ CREATE INDEX idx_stage_ended ON stage(ended_at);
 
 ## 8. 报告生成与 LLM
 
-报告生成走**两段式**：`固定格式化模板配置` 渲染出初稿 →（可选）`报告撰写 Skill` 做语言层改写。两个配置文件随应用分发、放在用户配置目录，可直接编辑。
+报告生成走**两段式**：`报告模板配置`（字段映射 → 自定义字段 → 最终格式化文档）渲染出初稿 →（可选）`报告撰写 Skill` 做语言层改写。两个配置文件随应用分发、放在用户配置目录，可直接编辑。
 
 **8.1 两个配置文件**
 
 | 文件 | 角色 | 内容 |
 | --- | --- | --- |
-| `report-template.yaml` | 固定格式化模板配置 | 章节顺序、取数字段、字段排版、空值占位、时长 / 占比 / 日期格式、硬性取数规则、AI 参数 |
+| `report-template.yaml` | 报告模板配置（三部分） | ① 数据库字段映射（替代字段 → 源字段）② 自定义字段（用替代字段拼字符串，可逐条展开成多行）③ 最终格式化文档（日报 / 周报 / 月报） |
 | `report-skill.md` | 报告撰写 Skill | 改写步骤、硬性约束（不得增删事实 / 改数字）、文风、篇幅、输出格式 |
+
+模板渲染的占位符约定：
+
+- `{字段}`：单行标量替换；
+- `{自定义字段}`：`text` 型替换成一段文字；`list` 型按记录逐条展开成多行；
+- 正文多行用 YAML 块标量 `|` 书写，换行与缩进原样保留；同一行可连续引用多个字段；
+- 取值为空：`list` 型跳过该条，`text` 型替换为空字符串。
 
 - **职责边界**：模板只管结构与格式，Skill 只管表达；Skill 不得增删模板章节。
 - **文件位置**：随包资源在 `resources/`；首次启动复制到应用配置目录
@@ -177,7 +184,7 @@ CREATE INDEX idx_stage_ended ON stage(ended_at);
 **8.2 生成流程**
 
 1. Rust 按周期聚合阶段明细与项目-任务数据；
-2. Rust 读 `report-template.yaml` → 渲染初稿（`{project_name}`、`{duration}`、`{result}` 等占位符按 `formats` 规则替换）；
+2. Rust 读 `report-template.yaml`：先用 `fields` 把数据库行转成「替代字段 → 值」的映射，再按 `custom` 逐条渲染，最后用 `documents[周期].正文` 的占位符拼出初稿；
 3. 点「AI 增强」→ 若已配置 API Key：组装 prompt = **Skill 正文** + **模板初稿** + **结构化数据（JSON）** + **周期信息**，走 OpenAI 兼容 `POST /v1/chat/completions`；
 4. 失败 / 未配置 Key / 模型输出异常 → **回退初稿**，不阻塞；
 5. 前端展示并支持一键复制。
@@ -192,96 +199,107 @@ CREATE INDEX idx_stage_ended ON stage(ended_at);
 `resources/report-template.yaml`：
 
 ```yaml
+# ==============================================================
+# workLog · 报告模板配置（report-template.yaml）
+# --------------------------------------------------------------
+# 报告由三部分拼出来：
+#   1) 数据库字段映射：替代字段 → 数据库源字段（一般不用改）
+#   2) 自定义字段：用替代字段拼出来的字符串（可逐条展开成多行）
+#   3) 最终格式化文档：日报 / 周报 / 月报，用 {} 引用上面的字段
+#
+# 占位符约定：
+#   {字段}        单行标量替换，例如 {项目名}
+#   {自定义字段}   自定义字段：text 型替换成一段文字；
+#                  list 型按记录逐条展开成多行（每条记录渲染一次 text）
+#   正文多行用 YAML 块标量 | 书写，换行与缩进原样保留
+#   取值为空时：list 型跳过该条，text 型替换为空字符串
+#   同一行可以连续引用多个字段，如 "{项目名} · {任务名}：{阶段成果}"
+#
+# 报告只写两件事：工作成果、工作计划；时间 / 数字由系统按固定规则
+# 给出，模板里不出现任何具体日期与时长字样。
+# ==============================================================
+
 meta:
-  version: 1
+  version: 2
   name: 默认报告模板
   locale: zh-CN
-  timezone: local
-  encoding: UTF-8
 
-periods:
-  当日:
-    title: "{date} 工作日报"
-    label: 当日
-    sections: [investment, main_output, next_goal, todo]
-  本周:
-    title: "第 {week} 周 周报"
-    label: 本周
-    sections: [investment, main_output, next_goal, todo]
-  本月:
-    title: "{year} 年 {month} 月 月报"
-    label: 本月
-    sections: [investment, main_output, next_goal, todo]
-  上周:
-    title: "第 {week} 周 周报"
-    label: 上周
-    sections: [investment, main_output, next_goal, todo]
-  上月:
-    title: "{year} 年 {month} 月 月报"
-    label: 上月
-    sections: [investment, main_output, next_goal, todo]
+# --------------------------------------------------------------
+# 1. 数据库字段映射
+#    左侧 = 本文件内使用的「替代字段」，右侧 = 数据库源字段
+#    增删字段时只改这一段，下面的自定义字段与文档不用动
+# --------------------------------------------------------------
+fields:
+  日期: period_date
+  周期: period_label
+  项目名: project_name
+  任务名: task_name
+  阶段号: stage_id
+  阶段成果: result
+  下一目标: next_goal
+  时长: duration
+  优先级: priority
+  截止日期: due_date
+  任务状态: status
+  总时长: agg_duration
+  项目数: agg_project_count
+  任务数: agg_task_count
 
-sections:
-  - id: investment
-    title: "{period_label}投入"
-    type: paragraph
-    source: stages
-    group_by: project
-    item_template: "{project_name} · {task_name}（{duration}）"
-    joiner: "；"
-    tail: "。"
-    empty_text: "（本周期无记录）"
-  - id: main_output
-    title: 主要产出
+# --------------------------------------------------------------
+# 2. 自定义字段
+#    text 型：整个周期只渲染一次
+#    list 型：按记录逐条渲染，每条记录一行
+#    skip_if_empty：指定的替代字段为空时跳过该条
+#    distinct：去掉完全重复的行
+# --------------------------------------------------------------
+custom:
+  工作成果:
     type: list
     source: stages
-    item_template: "{result}"
-    joiner: "；"
-    dedupe: true
-    max_items: 12
-    empty_text: "（本周期暂无阶段成果）"
-  - id: next_goal
-    title: 下一目标
+    text: "{项目名} · {任务名}：{阶段成果}"
+    skip_if_empty: 阶段成果
+    distinct: true
+  工作计划:
     type: list
     source: stages
-    item_template: "{project_name} · {task_name}：{next_goal}"
-    joiner: "；"
-    dedupe: true
-    max_items: 8
-    empty_text: "（未填写下一目标）"
-  - id: todo
-    title: 待办与风险
-    type: list
-    source: project_task
-    filter:
-      status: 未完成
-    sort:
-      by: priority
-      order: asc
-    item_template: "[{priority}] {project_name} · {task_name}（DDL {due_date}）"
-    empty_text: "（无未完成事项）"
+    text: "{项目名} · {任务名}：{下一目标}"
+    skip_if_empty: 下一目标
+    distinct: true
+  投入概览:
+    type: text
+    source: aggregate
+    text: "本期共投入 {总时长}，覆盖 {项目数} 个项目、{任务数} 个任务。"
 
-formats:
-  date: "YYYY-MM-DD"
-  duration: "{hours} 小时 {minutes} 分钟"
-  percent: "{value}%"
-  int: "{value}"
+# --------------------------------------------------------------
+# 3. 最终格式化文档
+#    日报 / 周报 / 月报各一份；正文用块标量 | 多行书写，
+#    每个占位符独占一行时，展开后仍是多行结构
+# --------------------------------------------------------------
+documents:
+  日报:
+    标题: "{日期} 工作日报"
+    正文: |
+      【工作成果】
+      {工作成果}
 
-rules:
-  - 只使用数据源里真实存在的字段，不推断、不补写未记录的内容
-  - 阶段成果 / 下一目标为空时使用该章节的 empty_text 占位，不留空行
-  - 时长统一走 formats.duration，不出现「3.5h」「3小时30分」等混合格式
-  - 占比四舍五入保留一位小数，各项占比合计为 100%
-  - 项目名 / 任务名使用数据库中的原始名称，不改写、不缩写
-  - 章节顺序、标题文字以本文件的定义为准，AI 不得增删章节
+      【工作计划】
+      {工作计划}
+  周报:
+    标题: "{周期} 工作周报"
+    正文: |
+      【本周工作成果】
+      {工作成果}
 
-ai:
-  enabled: true
-  skill_file: report-skill.md      # 与本文件同目录
-  max_tokens: 2000
-  temperature: 0.3
-  keep_structure: true             # 保留本模板的章节与顺序
-  fallback_to_template: true       # 调用失败时回退初稿
+      【下周工作计划】
+      {工作计划}
+  月报:
+    标题: "{周期} 工作月报"
+    正文: |
+      【本月工作成果】
+      {工作成果}
+
+      【下月工作计划】
+      {工作计划}
 ```
 
 `resources/report-skill.md`：
@@ -289,8 +307,8 @@ ai:
 ```markdown
 ---
 name: worklog-report-writer
-description: 把 workLog 按 report-template.yaml 渲染出的报告初稿改写成简洁、专业的书面报告；只做表达层改写，不增删事实、不改动任何数字。
-version: 1
+description: 把 workLog 按 report-template.yaml 渲染出的报告初稿改写成简洁、专业的书面报告；只做表达层改写，不增删事实、不改动任何数字与条目。
+version: 2
 applies_to: report generation
 input: [template_draft, structured_data, period]
 output: markdown_text
@@ -299,36 +317,69 @@ output: markdown_text
 # 报告撰写 Skill
 
 ## 何时使用
-在「AI 增强」被触发、且应用已配置 API Key 时使用。调用方会把三样东西交给你：
-1. **模板初稿**（template_draft）：已经按 report-template.yaml 渲染好的结构化文本；
+
+在「AI 增强」被触发、且应用已配置 API Key 时使用。调用方会交给你三样东西：
+
+1. **模板初稿**（template_draft）：已按 `report-template.yaml` 渲染好的文本；
 2. **结构化数据**（structured_data）：该周期的阶段明细、项目-任务、聚合统计；
-3. **周期信息**（period）：周期类型、日期范围、时区。
+3. **周期信息**（period）：周期类型与时间范围。
 
 ## 目标
-在完全保留事实与结构的前提下，把初稿改写成可以直接发出去的书面报告：语句通顺、条理清楚、长度合适。
+
+报告围绕两件事展开：**工作成果**（做了什么、产出是什么）与**工作计划**（接下来要做什么）。在完全保留事实与结构的前提下，把初稿改写成可以直接发出去的书面报告：语句通顺、条理清楚、长度合适。
 
 ## 处理步骤
-1. 通读初稿与结构化数据，确认所有数字、时长、占比、日期、项目名、任务名；
-2. 照抄初稿的章节顺序与标题文字，不增删章节、不改标题、不改顺序；
-3. 逐章节改写表达：合并重复表述、去掉口语与冗余主语、调整语序；
-4. 数字类内容（时长、占比、阶段数、日期、DDL）原样搬运，只允许改变呈现形式；
-5. 初稿中的空值占位符原样保留，不要替用户编内容；
-6. 输出纯文本 / Markdown，不加前言与结语。
+
+1. 通读初稿与结构化数据，确认每一条记录、每一个数字、每一个名称；
+2. **照抄初稿的章节顺序与标题文字**，不增删章节、不改标题、不改顺序；
+3. 逐条改写表达：合并重复表述、去掉口语与冗余主语、调整语序；
+4. 数字、时长、日期、项目名、任务名、阶段成果**原样搬运**，只允许做等价呈现（如把时长写成「3 小时 30 分钟」这种统一写法）；
+5. 初稿里的空值占位原样保留，不要替用户编内容；
+6. **条目数量与顺序保持不变**，不得把两条合并成一条，也不得把一条拆成两条；
+7. 输出纯文本 / Markdown，不加「以下是改写后的报告」这类前言，也不加结语、感想或额外建议。
 
 ## 硬性约束
+
 - 不得新增输入中不存在的事实、推测、评价、风险判断或改进建议；
-- 不得改写、换算、四舍五入任何数字与时长；
-- 不得把「下一目标」写成承诺或对进度的判断；
+- 不得改写、换算、四舍五入任何数字、时长与日期；
+- 不得把「工作计划」写成承诺、承诺性的时间点或对进度的判断；
 - 不得合并 / 拆分项目名、任务名、阶段成果条目；
-- 语言：简体中文书面语，陈述句；不使用第一人称；不使用感叹号、表情、网络用语；
-- 篇幅：单个条目不超过 3 行；整体长度与初稿相当（可压缩 20% 以内，但不得删信息）。
+- 不得改动模板给出的章节标题与占位符结构；
+- 语言：简体中文书面语，陈述句；不使用第一人称；不使用感叹号、表情、网络用语、夸张修辞；
+- 篇幅：单条不超过 3 行；整体长度与初稿相当（可压缩 20% 以内，但不得删信息）。
 
 ## 风格示例
-✅ 正确：今日投入：交通仿真平台二期 · 轨迹数据处理（3 小时 30 分钟）、车辆检测模型训练（2 小时）。
-❌ 错误：今天效率爆表！🎉 顺利完成轨迹处理框架搭建，势头非常好！（新增了输入里没有的评价与情绪）
+
+初稿（模板渲染结果，结构如下）：
+
+```
+【工作成果】
+{项目名} · {任务名}：{阶段成果}
+【工作计划】
+{项目名} · {任务名}：{下一目标}
+```
+
+✅ 正确输出 —— 章节、条目、顺序都不变，只把口语换成书面语：
+
+```
+【工作成果】
+完成{任务名}阶段，产出{阶段成果}（{项目名}）。
+【工作计划】
+{项目名} · {任务名}：{下一目标}
+```
+
+❌ 错误输出 —— 新增了输入里没有的评价与情绪，还把工作计划写成了承诺：
+
+```
+【工作成果】
+今天效率爆表！🎉 成果非常棒！
+【工作计划】
+明天一定把剩下的全部搞定！
+```
 
 ## 输出格式
-与模板初稿完全一致的章节结构：<报告标题> + 各章节标题与正文。
+
+与模板初稿完全一致的章节结构：报告标题 + 各章节标题与正文，逐条对应。
 ```
 
 **8.5 设置项对应**
@@ -355,7 +406,7 @@ output: markdown_text
 | M1   | Tauri 骨架 + 两张表 + 项目-任务新建/编辑（F1/F4） |
 | M2   | 计时服务 + 提醒看门狗 + 阶段记录（F2/F3）          |
 | M3   | 数据看板 + 导出（F5 图表部分）                    |
-| M4   | 固定模板 + LLM 增强报告 + 托盘/打包（F5 报告，含 report-template.yaml / report-skill.md 两个配置文件） |
+| M4   | 模板配置 + LLM 增强报告 + 托盘/打包（F5 报告，含 report-template.yaml / report-skill.md 两个配置文件） |
 
 ## 12. 风险与对策
 
