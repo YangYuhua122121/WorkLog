@@ -55,9 +55,10 @@
     --pri-hi-bg:rgba(255,69,58,.16); --pri-hi-line:rgba(255,69,58,.30); --pri-hi-fg:#ff9a90;
     --pri-mid-bg:rgba(255,159,10,.14); --pri-mid-line:rgba(255,159,10,.28); --pri-mid-fg:#ffc46b;
 
-    --bar1:#4a4a4c; --bar2:#5e5e60; --bar3:#75757a; --bar4:#8e8e93;
-    --bar-fg:rgba(255,255,255,.95); --bar4-fg:#1c1c1e;
-    --pie1:#8e8e93; --pie2:#6e6e73; --pie3:#58585c; --pie4:#454548; --pie5:#3a3a3c;
+    /* 项目配色（甘特 / 扇形共用） */
+    --pc1:#3d82dc; --pc2:#7f62cd; --pc3:#b0732a; --pc4:#34935f; --pc5:#c25672; --pc6:#358aa5;
+    --done-bg:rgba(94,92,230,.22); --done-fg:#b3b1ff;
+    --pri-lo-bg:rgba(10,132,255,.14); --pri-lo-line:rgba(10,132,255,.30); --pri-lo-fg:#8ac4ff;
 
     --sub-bg:rgba(255,255,255,.04); --flash-bg:rgba(10,132,255,.18); --flash-line:rgba(10,132,255,.36);
 
@@ -271,7 +272,7 @@
   }
   .badge.pri-高{background:var(--pri-hi-bg); border-color:var(--pri-hi-line); color:var(--pri-hi-fg);}
   .badge.pri-中{background:var(--pri-mid-bg); border-color:var(--pri-mid-line); color:var(--pri-mid-fg);}
-  .badge.pri-低{background:var(--fill-1); border-color:var(--line); color:var(--t2);}
+  .badge.pri-低{background:var(--pri-lo-bg); border-color:var(--pri-lo-line); color:var(--pri-lo-fg);}
   .col-proj{width:31%;} .col-task{width:29%;} .col-ddl{width:21%;} .col-pri{width:19%;}
 
   /* ================= 上滑面板（P4） ================= */
@@ -294,11 +295,11 @@
   }
   .sheet__title{font-family:var(--font-serif); font-size:14px; font-weight:600; color:var(--t1);}
   .close-btn{
-    width:28px;height:28px;border:1px solid var(--line);background:transparent;border-radius:8px;
+    width:28px;height:28px;border:none;background:transparent;border-radius:8px;
     cursor:pointer;display:grid;place-items:center;color:var(--t2);padding:0;
     transition:background-color .2s ease-out, color .2s ease-out, border-color .2s ease-out;
   }
-  .close-btn:hover{background:var(--fill-2); color:var(--t1); border-color:var(--line-strong);}
+  .close-btn:hover{background:var(--fill-2); color:var(--t1);}
   .sheet__body{flex:1; padding:12px; overflow:auto; min-height:0;}
 
   /* 面板内部分区：只给背景框，不加标题 */
@@ -432,9 +433,9 @@
   .tri button:hover{background:var(--fill-1); color:var(--t1);}
   .tri button.active[data-v="高"]{background:var(--pri-hi-bg);color:var(--pri-hi-fg);font-weight:600;}
   .tri button.active[data-v="中"]{background:var(--pri-mid-bg);color:var(--pri-mid-fg);font-weight:600;}
-  .tri button.active[data-v="低"]{background:var(--active-fill);color:var(--t1);font-weight:600;}
+  .tri button.active[data-v="低"]{background:var(--accent-bg);color:var(--accent-fg);font-weight:600;}
   .tri button.active[data-v="未完成"]{background:var(--accent-bg);color:var(--accent-fg);font-weight:600;}
-  .tri button.active[data-v="已完成"]{background:var(--active-fill);color:var(--t1);font-weight:600;}
+  .tri button.active[data-v="已完成"]{background:var(--done-bg);color:var(--done-fg);font-weight:600;}
 
   /* 周期分段按钮（P6 · 5 个排他） */
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--well);}
@@ -479,15 +480,21 @@
   .gantt__grid{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft);}
   .gantt__bar{
     position:absolute;top:2px;bottom:2px;
-    border-radius:5px;font-size:9.5px;color:var(--bar-fg);
+    border-radius:5px;font-size:9.5px;color:#fff;
     padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     display:flex;align-items:center;cursor:default;
     transition:background-color .2s ease-out;
   }
-  .gantt__bar.p1{background:var(--bar1);}
-  .gantt__bar.p2{background:var(--bar2);}
-  .gantt__bar.p3{background:var(--bar3);}
-  .gantt__bar.p4{background:var(--bar4);color:var(--bar4-fg);}
+  .gantt__bar.pc1{background:var(--pc1);}
+  .gantt__bar.pc2{background:var(--pc2);}
+  .gantt__bar.pc3{background:var(--pc3);}
+  .gantt__bar.pc4{background:var(--pc4);}
+  .gantt__bar.pc5{background:var(--pc5);}
+  .gantt__bar.pc6{background:var(--pc6);}
+  /* 同项目内只做色差（叠加白 / 黑），保持色相一致 */
+  .gantt__bar.sh-w1{background-image:linear-gradient(rgba(255,255,255,.20),rgba(255,255,255,.20));}
+  .gantt__bar.sh-d1{background-image:linear-gradient(rgba(0,0,0,.16),rgba(0,0,0,.16));}
+  .gantt__bar.sh-w2{background-image:linear-gradient(rgba(255,255,255,.34),rgba(255,255,255,.34));}
 
   .pie-wrap{display:flex;align-items:center;gap:16px;margin-top:14px;}
   .pie-svg{flex:0 0 132px;width:132px;height:132px;}
@@ -616,9 +623,9 @@
     --pri-hi-bg:rgba(255,59,48,.10); --pri-hi-line:rgba(255,59,48,.26); --pri-hi-fg:#c0211a;
     --pri-mid-bg:rgba(255,149,0,.13); --pri-mid-line:rgba(255,149,0,.30); --pri-mid-fg:#955700;
 
-    --bar1:#dcdce1; --bar2:#c9c9cf; --bar3:#b1b1b8; --bar4:#8e8e93;
-    --bar-fg:rgba(0,0,0,.70); --bar4-fg:#ffffff;
-    --pie1:#b3b3ba; --pie2:#9999a1; --pie3:#7e7e86; --pie4:#63636b; --pie5:#494950;
+    --pc1:#2f6fd0; --pc2:#6f4fc0; --pc3:#b86a15; --pc4:#268a52; --pc5:#c04a63; --pc6:#1f7f99;
+    --done-bg:rgba(88,86,214,.12); --done-fg:#3f3dbb;
+    --pri-lo-bg:rgba(0,113,227,.10); --pri-lo-line:rgba(0,113,227,.26); --pri-lo-fg:#0060c7;
 
     --sub-bg:rgba(0,0,0,.03);
 
@@ -632,85 +639,50 @@
   html[data-theme="light"] .board{border-color:rgba(0,0,0,.10);}
 
   /* =====================================================================
-     面板反色层：上滑面板与悬浮球和主面板明度相反
-     深色主题 → 浅色面板 #d4d4d9；浅色主题 → 深色面板 #2f2f32
-     反色层内部所有组件沿用同一套变量，自动跟随
+     面板层级：与主面板同色系，只递进一档（深→浅 / 浅→深同向）
+     深色主题：主面板 #2c2c2e → 上滑面板 #45454a
+     浅色主题：主面板 #f6f6f8 → 上滑面板 #dcdce1
      ===================================================================== */
   html[data-theme="dark"] .sheet,
   html[data-theme="dark"] .clip__body{
-    color-scheme:light;
-    --surface:#d4d4d9;
-    --sub-bg:rgba(0,0,0,.045);
-    --chrome:rgba(0,0,0,.05);
-    --clip-bg:rgba(212,212,217,.92);
-    --field-bg:#f6f6f8;
-    --well:rgba(0,0,0,.06);
-    --well-2:rgba(0,0,0,.055);
-    --line:rgba(0,0,0,.14);
-    --line-soft:rgba(0,0,0,.08);
-    --line-strong:rgba(0,0,0,.20);
-    --line-focus:rgba(0,0,0,.34);
-    --t1:rgba(0,0,0,.88);
-    --t2:rgba(0,0,0,.56);
-    --t3:rgba(0,0,0,.38);
-    --t4:rgba(0,0,0,.28);
-    --fill-1:rgba(0,0,0,.05);
-    --fill-2:rgba(0,0,0,.09);
-    --fill-3:rgba(0,0,0,.12);
-    --active-fill:rgba(255,255,255,.75);
-    --fill-hover:rgba(0,0,0,.045);
-    --accent:#0071e3;
-    --accent-bg:rgba(0,113,227,.13);
-    --accent-fg:#0060c7;
-    --ok-bg:#dff3e5; --ok-fg:#186c36; --ok-line:rgba(31,145,66,.40); --ok-bg-hover:#d2eedb;
-    --no-bg:#fbe0dd; --no-fg:#a52a22; --no-line:rgba(200,60,50,.32); --no-bg-hover:#f6d2ce;
-    --btn-bg:#dfe0e3; --btn-bg-hover:#d4d5da; --btn-fg:rgba(0,0,0,.86);
-    --pri-hi-bg:rgba(255,59,48,.13); --pri-hi-line:rgba(255,59,48,.30); --pri-hi-fg:#b5211a;
-    --pri-mid-bg:rgba(255,149,0,.16); --pri-mid-line:rgba(255,149,0,.34); --pri-mid-fg:#8a5000;
-    --pop-bg:rgba(255,255,255,.99); --pop-line:rgba(0,0,0,.12);
-    --scroll-thumb:rgba(0,0,0,.18); --scroll-thumb-hv:rgba(0,0,0,.28);
-    --sel-bg:rgba(0,113,227,.22);
-    --flash-bg:rgba(10,132,255,.16); --flash-line:rgba(10,132,255,.36);
-  }
-  html[data-theme="light"] .sheet,
-  html[data-theme="light"] .clip__body{
-    color-scheme:dark;
-    --surface:#2f2f32;
-    --sub-bg:rgba(255,255,255,.05);
-    --chrome:rgba(255,255,255,.05);
-    --clip-bg:rgba(47,47,50,.92);
-    --field-bg:#1e1e21;
+    --surface:#45454a;
+    --sub-bg:rgba(255,255,255,.055);
+    --chrome:rgba(0,0,0,.22);
+    --clip-bg:rgba(69,69,74,.92);
+    --field-bg:#2e2e32;
     --well:rgba(0,0,0,.28);
     --well-2:rgba(0,0,0,.22);
     --line:rgba(255,255,255,.12);
-    --line-soft:rgba(255,255,255,.08);
+    --line-soft:rgba(255,255,255,.07);
     --line-strong:rgba(255,255,255,.18);
     --line-focus:rgba(255,255,255,.30);
-    --t1:rgba(255,255,255,.95);
-    --t2:rgba(255,255,255,.68);
-    --t3:rgba(255,255,255,.40);
-    --t4:rgba(255,255,255,.30);
-    --fill-1:rgba(255,255,255,.05);
-    --fill-2:rgba(255,255,255,.09);
-    --fill-3:rgba(255,255,255,.12);
+    --btn-bg:#57575d; --btn-bg-hover:#636369; --btn-fg:rgba(255,255,255,.90);
     --active-fill:rgba(255,255,255,.14);
-    --fill-hover:rgba(255,255,255,.05);
-    --accent:#0a84ff;
-    --accent-bg:rgba(10,132,255,.20);
-    --accent-fg:#8ac4ff;
-    --ok-bg:#1d3d2a; --ok-fg:#8ce6ac; --ok-line:rgba(48,209,88,.45); --ok-bg-hover:#244c34;
-    --no-bg:#3d1f1f; --no-fg:#f3a19a; --no-line:rgba(255,69,58,.42); --no-bg-hover:#4a2626;
-    --btn-bg:#424246; --btn-bg-hover:#4d4d52; --btn-fg:rgba(255,255,255,.90);
-    --pri-hi-bg:rgba(255,69,58,.18); --pri-hi-line:rgba(255,69,58,.32); --pri-hi-fg:#ff9a90;
-    --pri-mid-bg:rgba(255,159,10,.16); --pri-mid-line:rgba(255,159,10,.30); --pri-mid-fg:#ffc46b;
-    --pop-bg:rgba(58,58,61,.99); --pop-line:rgba(255,255,255,.14);
-    --scroll-thumb:rgba(255,255,255,.16); --scroll-thumb-hv:rgba(255,255,255,.26);
-    --sel-bg:rgba(10,132,255,.35);
-    --flash-bg:rgba(10,132,255,.22); --flash-line:rgba(10,132,255,.45);
+    --pop-bg:rgba(58,58,60,.98); --pop-line:rgba(255,255,255,.12);
+    --flash-bg:rgba(10,132,255,.16); --flash-line:rgba(10,132,255,.38);
   }
-  /* 反色面板的投影：浅色面板落在深色底上要有存在感，深色面板落在浅色底上要轻 */
-  html[data-theme="dark"] .sheet{box-shadow:0 -2px 8px rgba(0,0,0,.45);}
-  html[data-theme="light"] .sheet{box-shadow:0 -2px 8px rgba(0,0,0,.20);}
+  html[data-theme="light"] .sheet,
+  html[data-theme="light"] .clip__body{
+    --surface:#dcdce1;
+    --sub-bg:rgba(0,0,0,.045);
+    --chrome:rgba(0,0,0,.035);
+    --clip-bg:rgba(220,220,225,.92);
+    --field-bg:#f6f6f8;
+    --well:rgba(0,0,0,.05);
+    --well-2:rgba(0,0,0,.045);
+    --line:rgba(0,0,0,.13);
+    --line-soft:rgba(0,0,0,.07);
+    --line-strong:rgba(0,0,0,.20);
+    --line-focus:rgba(0,0,0,.30);
+    --btn-bg:#ececf0; --btn-bg-hover:#e2e2e7; --btn-fg:rgba(0,0,0,.85);
+    --active-fill:rgba(255,255,255,.92);
+    --pop-bg:rgba(255,255,255,.99); --pop-line:rgba(0,0,0,.12);
+    --flash-bg:rgba(0,113,227,.13); --flash-line:rgba(0,113,227,.30);
+  }
+
+  /* 面板投影：与主面板之间保留一层轻投影，边界更清楚 */
+  html[data-theme="dark"] .sheet{box-shadow:0 -2px 8px rgba(0,0,0,.40);}
+  html[data-theme="light"] .sheet{box-shadow:0 -2px 8px rgba(0,0,0,.16);}
 
   @media (max-width:520px){
     .stage,.stage-head{width:100%;}
@@ -1001,8 +973,9 @@
               <div class="field-grid">
                 <div class="fld"><label>上班时间</label><select id="setStart"></select></div>
                 <div class="fld"><label>下班时间</label><select id="setEnd"></select></div>
-                <div class="fld full"><div class="note">正常工作时间之外仍在计时，将弹出计时提醒窗（无操作时自动停止并生成本次阶段记录）。</div></div>
-                <div class="fld full"><button class="btn" id="setPreviewR9" style="width:100%">预览「P9 计时提醒窗」</button></div>
+                <div class="fld"><label>连续工作上限 x（分钟）</label><input type="number" id="setX" value="60" min="1"></div>
+                <div class="fld"><label>自动停止倒计时 y（秒）</label><input type="number" id="setY" value="60" min="5"></div>
+                <div class="fld full"><div class="note">正常工作时间之外仍在计时，连续工作超过 x 分钟弹出提醒；提醒窗出现后 y 秒内无操作，将自动停止计时并生成本次阶段记录。</div></div>
               </div>
             </div>
 
@@ -1026,7 +999,7 @@
             </div>
           </div>
           <div class="sheet__foot">
-            <span class="note">工作时间之外连续计时会触发提醒</span>
+            <span class="note">工作时间之外的连续计时会触发提醒</span>
             <button class="btn btn--save" id="setSave">保存设置</button>
           </div>
         </div>
@@ -1980,11 +1953,11 @@ const SUMMARY = {
     {proj:'文档输出', tasks:[{name:'部署文档', start:18, end:22, h:6, dur:'6h'}]}
   ]}
 };
-/* 扇形配色随主题切换：读取 --pie1..5（深色 / 浅色各一组） */
+/* 配色随主题切换：读取 --pc1..6（项目调色组，深色 / 浅色各一组） */
 function pieColors(){
   const cs = getComputedStyle(document.documentElement);
-  const out = [1,2,3,4,5].map(i=>cs.getPropertyValue('--pie'+i).trim());
-  return out.every(Boolean) ? out : ['#8e8e93','#6e6e73','#58585c','#454548','#3a3a3c'];
+  const out = [1,2,3,4,5,6].map(i=>cs.getPropertyValue('--pc'+i).trim());
+  return out.every(Boolean) ? out : ['#4a8fe7','#8b6fd6','#c2802f','#3aa06a','#cd5f7b','#3d95b0'];
 }
 
 function posPct(v, d){ return ((v-d.base)/d.max)*100; }
@@ -2013,13 +1986,17 @@ function renderGantt(d){
     html += `<span class="gantt__tick" style="left:${posPct(t,d)}%;transform:translateX(${shift})">${d.labels[i]}</span>`;
   });
   html += '</div></div>';
+  const projIdx = {};
+  d.rows.forEach(row=>{ if(!(row.proj in projIdx)) projIdx[row.proj] = Object.keys(projIdx).length; });
+  const SHADES = ['', 'sh-w1', 'sh-d1', 'sh-w2'];
   d.rows.forEach((row,ri)=>{
     html += `<div class="gantt__row"><div class="gantt__rowlab" title="${row.proj}">${row.proj}</div><div class="gantt__track">`;
     d.ticks.forEach(t=>{ html += `<span class="gantt__grid" style="left:${posPct(t,d)}%"></span>`; });
-    row.tasks.forEach(task=>{
+    const pIdx = projIdx[row.proj] % 6;
+    row.tasks.forEach((task,ti)=>{
       const left = posPct(task.start, d);
       const width = Math.max(2, posPct(task.end, d) - left);
-      html += `<div class="gantt__bar p${(ri%4)+1}" style="left:${left}%;width:${width}%"
+      html += `<div class="gantt__bar pc${pIdx+1} ${SHADES[ti%SHADES.length]}" style="left:${left}%;width:${width}%"
         data-task="${task.name}" data-start="${task.start}" data-end="${task.end}"
         data-dur="${task.dur}" data-unit="${d.unit}">${task.name}</div>`;
     });
@@ -2210,7 +2187,7 @@ let r9timer = null;
 function openRemind9(){
   if(state.modalLocked){ toast('请先保存本次阶段记录'); return; }
   closeRemind9();
-  const y = 60;   /* 倒计时 y：界面不暴露，固定默认值 */
+  const y = Math.max(5, parseInt($('#setY').value,10) || 60);
   let n = y;
   $('#r9count').textContent = n;
   $('#remind9').classList.add('open');
@@ -2228,10 +2205,6 @@ function closeRemind9(){
   clearInterval(r9timer); r9timer = null;
   $('#remind9').classList.remove('open');
 }
-$('#setPreviewR9').addEventListener('click', ()=>{
-  if(state.modalLocked){ toast('请先保存本次阶段记录'); return; }
-  openRemind9();
-});
 /* 只保留「仍在工作」：人不在 → 倒计时到 0 自动停止并进入 F3；人在且想停 → 点悬浮球启停按钮 */
 $('#r9keep').addEventListener('click', ()=>{ closeRemind9(); toast('已重置提醒计时'); });
 
