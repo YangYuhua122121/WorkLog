@@ -1,0 +1,74 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag to release, e.g. v0.2.0"
+        required: true
+        default: "v0.2.0"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target universal-apple-darwin --bundles dmg"
+          - platform: windows-latest
+            args: "--bundles nsis"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.platform != 'macos-latest'
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.platform == 'macos-latest'
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ inputs.version || github.ref_name }}
+          releaseName: "workLog ${{ inputs.version || github.ref_name }}"
+          releaseBody: |
+            ## workLog ${{ inputs.version || github.ref_name }}
+
+            macOS 与 Windows 安装包见下方 Assets。
+
+            ### 安装
+            - macOS：下载 `workLog_*_universal.dmg`，首次打开如被拦截，右键 App →「打开」。
+            - Windows：下载 `workLog_*_x64-setup.exe`，SmartScreen 选择「更多信息 → 仍要运行」。
+
+            ### 本次更新
+            - 双窗口重构，macOS 主面板原生跟随悬浮球
+            - 悬浮球 / 主面板第一下点击即可操作
+            - 周 / 月甘特按项目 × 天聚合，悬浮查看当天任务时长
+            - 计时状态跨重启恢复、单实例
+            - 统计看板、模板报告、AI 增强、导出 CSV / Excel
+
+            安装包未签名 / 未公证；数据只存本地。
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

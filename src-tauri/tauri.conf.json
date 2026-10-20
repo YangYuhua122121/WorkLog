@@ -25,7 +25,8 @@
         "center": true,
         "visible": true,
         "shadow": false,
-        "acceptFirstMouse": true
+        "acceptFirstMouse": true,
+        "noRedirectionBitmap": true
       },
       {
         "label": "board",
@@ -43,7 +44,8 @@
         "center": false,
         "visible": false,
         "shadow": false,
-        "acceptFirstMouse": true
+        "acceptFirstMouse": true,
+        "noRedirectionBitmap": true
       }
     ],
     "security": {

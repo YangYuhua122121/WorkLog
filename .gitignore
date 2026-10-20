@@ -1,5 +1,33 @@
+# macOS / Windows
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+
+# Dependencies / build output
 node_modules/
 src-tauri/target/
 src-tauri/gen/
+dist/
 *.log
+
+# Local cargo mirror (keep local, don't force contributors to use it)
+src-tauri/.cargo/config.toml
+
+# Packaged artifacts
+*.app
+*.dmg
+*.exe
+*.msi
+*.zip
+*.pdb
+
+# Environment
+.env
+.env.*
