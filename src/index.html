@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>workLog</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+
+<div class="stage">
+  <div class="unit" id="unit">
+
+    <!-- ============ P2 悬浮球（夹子） ============ -->
+    <div class="clip" id="clip" title="点击展开 / 收起主面板 · 拖动可移动 · 双击回到默认位置">
+      <div class="clip__body">
+        <div class="clip__row1">
+          <button class="rec-btn" id="recBtn" title="开始 / 停止计时"><span class="dot"></span></button>
+          <span class="clip__state" id="clipState">空闲</span>
+          <span class="clip__dots" id="clipDots"><span></span><span></span><span></span></span>
+          <span class="clip__spacer"></span>
+          <span class="clip__timer" id="clipTimer">00:00</span>
+        </div>
+        <div class="clip__row2">
+          <span class="clip__task" id="clipTask"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ P3 主面板 ============ -->
+    <div class="board" id="board">
+
+      <div class="board__toolbar">
+        <button class="tool-ic" id="newBtn" title="新建项目-任务">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>
+        </button>
+        <span class="board__brand"></span>
+        <button class="tool-ic" id="setBtn" title="设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="task">任务</button>
+        <button class="tab" data-tab="summary">汇总</button>
+      </div>
+
+      <div class="panes">
+
+        <!-- ============ P5 任务标签页 ============ -->
+        <div class="tabpane active" id="pane-task">
+          <div class="table-scroll" id="tableScroll">
+            <table>
+              <colgroup><col class="col-proj"><col class="col-task"><col class="col-ddl"><col class="col-pri"></colgroup>
+              <thead>
+                <tr>
+                  <th data-filter="proj" class="th-filter">项目名 <span class="caret"></span></th>
+                  <th>任务名</th>
+                  <th data-sort="ddl" class="th-sort">DDL <span class="arrow"></span></th>
+                  <th data-filter="pri" class="th-filter">优先级 <span class="caret"></span></th>
+                </tr>
+              </thead>
+              <tbody class="tbody" id="tbody"></tbody>
+            </table>
+            <div id="tableSpacer" aria-hidden="true"></div>
+            <div class="hdr-menu" id="hdrMenu"></div>
+          </div>
+        </div>
+
+        <!-- ============ P6 汇总标签页 ============ -->
+        <div class="tabpane" id="pane-summary">
+          <div class="summary">
+            <div class="period-bar">
+              <div class="seg" id="periodSeg">
+                <button data-p="当日" class="active">当日</button>
+                <button data-p="本周">本周</button>
+                <button data-p="本月">本月</button>
+                <button data-p="上周">上周</button>
+                <button data-p="上月">上月</button>
+              </div>
+            </div>
+            <div class="s-card">
+              <h3>工时分配看板</h3>
+              <div id="gantt"></div>
+              <div class="pie-wrap">
+                <svg id="pieSvg" class="pie-svg" viewBox="0 0 132 132"></svg>
+                <div class="pie-leg" id="pieLeg"></div>
+              </div>
+              <div class="pie-info" id="pieInfo">悬浮扇形或甘特条块，可查看项目下各任务的占比 / 时间</div>
+              <div class="hovercard" id="hoverTip"></div>
+            </div>
+
+            <div class="s-card">
+              <div class="report-head">
+                <h3>报告生成</h3>
+                <button class="btn" id="aiBtn">AI 增强</button>
+              </div>
+              <div class="report-box" id="reportBox">
+                <button class="copy-ic" id="copyBtn" title="复制报告文本">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <rect x="5" y="5" width="9" height="9" rx="1.2"/><path d="M11 5V3.2A1.2 1.2 0 0 0 9.8 2H3.2A1.2 1.2 0 0 0 2 3.2v6.6A1.2 1.2 0 0 0 3.2 11H5"/>
+                  </svg>
+                </button>
+                <div id="reportText"></div>
+              </div>
+              <div class="note" style="margin-top:7px">默认按固定模板生成；配置 API 后可点「AI 增强」重写，点右上角图标复制文本。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ P5-2 项目详细信息（上滑） ============ -->
+        <div class="sheet" id="sheet-detail">
+          <div class="sheet__head">
+            <div class="sheet__title">项目详细信息</div>
+            <button class="close-btn" id="detailClose" title="关闭">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </button>
+          </div>
+          <div class="sheet__body">
+            <div class="subpanel">
+              <div class="field-grid">
+                <div class="fld"><label>项目名 *</label>
+                  <div class="combo" id="dProjCombo">
+                    <input type="text" id="dProj" placeholder="输入或选择项目名" autocomplete="off">
+                    <button class="combo-arrow" type="button" data-target="dProj" title="选择已有项目">▾</button>
+                    <div class="combo-list" id="dProjList"></div>
+                  </div>
+                </div>
+                <div class="fld"><label>任务名</label><input type="text" id="dTask"></div>
+                <div class="fld"><label>截止日期（DDL）</label><input type="date" id="dDDL"></div>
+                <div class="fld"><label>优先级 *</label>
+                  <div class="tri" id="dPri">
+                    <button data-v="高">高</button><button data-v="中">中</button><button data-v="低">低</button>
+                  </div>
+                </div>
+                <div class="fld full"><label>备注</label><input type="text" id="dNote" placeholder="选填"></div>
+                <div id="dCustomFields" style="grid-column:1/-1"></div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="meta-line" style="margin-top:0"><span>阶段列表</span><span class="note" id="dStageCount"></span></div>
+              <table class="stage-list">
+                <colgroup><col style="width:14%"><col style="width:20%"><col></colgroup>
+                <thead><tr><th>阶段号</th><th>日期</th><th>成果</th></tr></thead>
+                <tbody id="dStageBody"></tbody>
+              </table>
+
+              <div class="stage-detail">
+                <div class="meta-line"><span>阶段详情</span><span class="note">点选上方阶段查看 / 编辑</span></div>
+                <div class="field-grid">
+                  <div class="fld"><label>阶段号</label><div class="val" id="sdNo">—</div></div>
+                  <div class="fld"><label>本次时长</label><div class="val" id="sdDur">—</div></div>
+                  <div class="fld full"><label>阶段成果</label><input type="text" id="sdOut" placeholder="本阶段产出"></div>
+                  <div class="fld full"><label>下一目标</label><input type="text" id="sdNext" placeholder="作为下次阶段成果的预输入"></div>
+                  <div class="fld full"><label>任务状态</label>
+                    <div class="tri" id="sdStatus"><button data-v="未完成">未完成</button><button data-v="已完成">已完成</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sheet__foot">
+            <button class="btn btn--danger" id="detailCancel" disabled>取消修改</button>
+            <span class="note" id="detailHint">仅在有改动时可操作</span>
+            <button class="btn btn--save" id="detailSave" disabled>保存</button>
+          </div>
+        </div>
+
+        <!-- ============ P7 新建项目-任务（上滑） ============ -->
+        <div class="sheet" id="sheet-new">
+          <div class="sheet__head">
+            <div class="sheet__title">新建项目 - 任务</div>
+            <button class="close-btn" id="newClose" title="关闭">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </button>
+          </div>
+          <div class="sheet__body">
+            <div class="subpanel">
+              <div class="field-grid">
+                <div class="fld"><label>项目名 *</label>
+                  <div class="combo" id="nProjCombo">
+                    <input type="text" id="nProj" placeholder="输入或选择项目名" autocomplete="off">
+                    <button class="combo-arrow" type="button" data-target="nProj" title="选择已有项目">▾</button>
+                    <div class="combo-list" id="nProjList"></div>
+                  </div>
+                </div>
+                <div class="fld"><label>任务名 *</label><input type="text" id="nTask" placeholder="如：轨迹数据处理"></div>
+                <div class="fld"><label>截止日期（DDL）</label><input type="date" id="nDDL"></div>
+                <div class="fld"><label>优先级 *</label>
+                  <div class="tri" id="nPri"><button data-v="高">高</button><button data-v="中" class="active">中</button><button data-v="低">低</button></div>
+                </div>
+                <div class="fld full"><label>备注</label><input type="text" id="nNote" placeholder="选填"></div>
+                <div id="nCustomFields" style="grid-column:1/-1"></div>
+              </div>
+            </div>
+          </div>
+          <div class="sheet__foot">
+            <button class="btn btn--danger" id="newCancel">取消新建</button>
+            <span class="note">自动编号：项目号 - 任务号</span>
+            <button class="btn btn--save" id="newSave">保存</button>
+          </div>
+        </div>
+
+        <!-- ============ P5-3 本次阶段记录（停止后模态） ============ -->
+        <div class="sheet" id="sheet-f3">
+          <div class="sheet__head">
+            <div class="sheet__title">本次阶段记录 · 必须手动保存</div>
+          </div>
+          <div class="sheet__body">
+            <div class="subpanel">
+              <div class="field-grid">
+                <div class="fld full"><label>项目 - 任务</label><div class="val" id="f3Task"></div></div>
+                <div class="fld"><label>截止日期</label><div class="val" id="f3DDL"></div></div>
+                <div class="fld"><label>优先级</label><div class="val" id="f3Pri"></div></div>
+                <div class="fld full"><label>备注</label><div class="val" id="f3Note"></div></div>
+              </div>
+            </div>
+
+            <div class="subpanel is-alert">
+              <div class="meta-line" style="margin-top:0"><span>阶段列表（只读）</span><span class="note" id="f3StageHint"></span></div>
+              <table class="stage-list">
+                <colgroup><col style="width:14%"><col style="width:20%"><col></colgroup>
+                <thead><tr><th>阶段号</th><th>日期</th><th>成果</th></tr></thead>
+                <tbody id="f3StageBody"></tbody>
+              </table>
+
+              <div class="stage-detail">
+                <div class="meta-line"><span>阶段详情 · 请填写</span><span class="note">可留空</span></div>
+                <div class="field-grid">
+                  <div class="fld"><label>阶段号</label><div class="val" id="f3No">—</div></div>
+                  <div class="fld"><label>本次时长</label><div class="val" id="f3Dur">—</div></div>
+                  <div class="fld full"><label>阶段成果</label><input type="text" id="f3Out" placeholder="本阶段产出（可留空）"></div>
+                  <div class="fld full"><label>下一目标</label><input type="text" id="f3Next" placeholder="下次的预输入（可留空）"></div>
+                  <div class="fld full"><label>任务状态</label>
+                    <div class="tri" id="f3Status"><button data-v="未完成" class="active">未完成</button><button data-v="已完成">已完成</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sheet__foot">
+            <button class="btn btn--danger" id="f3Delete">删除记录</button>
+            <span class="note" id="f3Hint">可留空，必须手动保存</span>
+            <button class="btn btn--save" id="f3Save">保存</button>
+          </div>
+        </div>
+
+        <!-- ============ P8 设置（上滑，紧贴标签栏） ============ -->
+        <div class="sheet sheet--tabs" id="sheet-settings">
+          <div class="sheet__head">
+            <div class="sheet__title">设置</div>
+            <button class="close-btn" id="setClose" title="关闭">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </button>
+          </div>
+          <div class="sheet__body">
+            <div class="subpanel">
+              <div class="meta-line" style="margin-top:0"><span>外观</span><span class="note">切换后立即生效</span></div>
+              <div class="field-grid">
+                <div class="fld full">
+                  <div class="seg theme-seg" id="themeSeg">
+                    <button data-v="dark" class="active">深色</button>
+                    <button data-v="light">浅色</button>
+                    <button data-v="auto">跟随系统</button>
+                  </div>
+                </div>
+                <div class="fld full">
+                  <label>界面字号 <span class="note" id="fsVal">16px</span></label>
+                  <input type="range" id="fsRange" min="14" max="20" step="1" value="16">
+                </div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="meta-line" style="margin-top:0"><span>防遗忘 · 正常工作时间</span></div>
+              <div class="field-grid">
+                <div class="fld"><label>上班时间</label><select id="setStart"></select></div>
+                <div class="fld"><label>下班时间</label><select id="setEnd"></select></div>
+                <div class="fld"><label>连续工作上限 x（分钟）</label><input type="number" id="setX" value="60" min="1"></div>
+                <div class="fld"><label>自动停止倒计时 y（秒）</label><input type="number" id="setY" value="60" min="5"></div>
+                <div class="fld full"><div class="note">正常工作时间之外仍在计时，连续工作超过 x 分钟弹出提醒；提醒窗出现后 y 秒内无操作，将自动停止计时并生成本次阶段记录。</div></div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="meta-line" style="margin-top:0"><span>LLM · OpenAI 兼容接口</span></div>
+              <div class="field-grid">
+                <div class="fld full"><label>Base URL</label><input type="text" id="setBase" placeholder="https://api.openai.com/v1"></div>
+                <div class="fld full"><label>API Key（首版存本地配置文件）</label><input type="password" id="setKey" placeholder="sk-..."></div>
+                <div class="fld full"><label>模型名</label><input type="text" id="setModel" value="gpt-4o-mini"></div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="meta-line" style="margin-top:0"><span>报告生成配置</span><span class="note">模板 + Skill 两个文件</span></div>
+              <div class="field-grid">
+                <div class="fld full"><label>固定格式化模板配置文件</label>
+                  <div class="path-row">
+                    <input type="text" id="setTemplatePath" value="配置/report-template.yaml" readonly>
+                    <button class="btn" id="btnOpenTemplate" type="button">打开</button>
+                  </div>
+                </div>
+                <div class="fld full"><label>报告撰写 Skill 文件</label>
+                  <div class="path-row">
+                    <input type="text" id="setSkillPath" value="配置/report-skill.md" readonly>
+                    <button class="btn" id="btnOpenSkill" type="button">打开</button>
+                  </div>
+                </div>
+                <div class="fld full"><div class="note">模板文件只改三块：字段对照（给数据起名）/ 自定义文字（把名字拼成一句话）/ 报告正文（日报·周报·月报）；Skill 文件只管语言与写法。两者随应用放在配置目录，读取失败时回退内置默认模板，报告仍可正常生成。</div></div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="meta-line" style="margin-top:0"><span>自定义字段管理</span></div>
+              <div class="field-grid">
+                <div class="fld full"><input type="text" id="setField" placeholder="新增字段名，如：客户 / 标签"></div>
+                <div class="fld full"><button class="btn" id="setFieldAdd" style="width:100%">＋ 添加自定义字段</button></div>
+              </div>
+              <div id="setFieldList" class="field-list"></div>
+              <div class="note" style="margin-top:6px">自定义字段将完整显示在「备注」下方。</div>
+            </div>
+          </div>
+          <div class="sheet__foot">
+            <span class="note">工作时间之外的连续计时会触发提醒</span>
+            <button class="btn btn--save" id="setSave">保存设置</button>
+          </div>
+        </div>
+
+      </div><!-- /panes -->
+
+      <!-- P9 计时提醒窗 -->
+      <div class="remind" id="remind9">
+        <div class="remind__title">计时提醒</div>
+        <p>检测到你可能忘记停止计时。<br>若无操作，将在 <b id="r9count">60</b> 秒后自动停止并生成本次阶段记录。</p>
+        <div class="remind__btns">
+          <button class="btn btn--danger" id="r9keep">仍在工作</button>
+        </div>
+      </div>
+      <div class="remind-backdrop" id="remindBackdrop"></div>
+    </div><!-- /board -->
+  </div><!-- /unit -->
+</div><!-- /stage -->
+
+<div id="toast"></div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

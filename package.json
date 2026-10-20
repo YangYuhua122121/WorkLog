@@ -1,0 +1,20 @@
+{
+  "name": "worklog",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "workLog · 悬浮球计时工作记录",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "icons": "tauri icon app-icon.png"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-opener": "^2.2.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}
