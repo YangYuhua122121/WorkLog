@@ -176,8 +176,10 @@ pub fn show_board(app: AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     crate::link_board_to_clip(&app);
     crate::set_board_visible(&app, true);
-    // macOS 通过窗口 level 保证悬浮球在上；其他平台再提一次悬浮球
-    #[cfg(not(target_os = "macos"))]
+    // macOS 通过窗口 level 保证悬浮球在上；Windows 用 SetWindowPos 重新提到 topmost 最前
+    #[cfg(target_os = "windows")]
+    crate::raise_clip(&app);
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     if let Some(clip) = app.get_webview_window("clip") {
         let _ = clip.show();
     }
@@ -226,6 +228,8 @@ pub fn resize_clip_window(app: AppHandle, width: f64, height: f64) -> Result<(),
             }
         }
     }
+    #[cfg(target_os = "windows")]
+    crate::raise_clip(&app);
     Ok(())
 }
 

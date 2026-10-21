@@ -109,6 +109,30 @@ pub(crate) fn unlink_board_from_clip(app: &AppHandle) {
 #[cfg(not(target_os = "macos"))]
 fn set_window_levels(_app: &AppHandle) {}
 
+/// Windows：主面板显示 / 重新置顶后，把悬浮球重新提到最上层，避免被板子盖住一半
+#[cfg(target_os = "windows")]
+pub(crate) fn raise_clip(app: &AppHandle) {
+    use std::ffi::c_void;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    };
+    if let Some(clip) = app.get_webview_window("clip") {
+        if let Ok(hwnd) = clip.hwnd() {
+            unsafe {
+                SetWindowPos(
+                    hwnd.0 as *mut c_void,
+                    HWND_TOPMOST,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                );
+            }
+        }
+    }
+}
+
 /// 托盘隐藏 / 显示时记住主面板是否打开着
 #[derive(Default)]
 struct UiState {
@@ -156,6 +180,8 @@ fn show_all(app: &AppHandle) {
         }
         #[cfg(target_os = "macos")]
         link_board_to_clip(app);
+        #[cfg(target_os = "windows")]
+        raise_clip(app);
     }
 }
 

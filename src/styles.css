@@ -839,3 +839,7 @@ body.board-page .board{height:100%;}
 /* 甘特悬浮浮窗：项目当天任务清单 */
 .hovercard__total{border-top:1px solid var(--line-soft); margin-top:5px; padding-top:5px;}
 .gantt__bar{padding:0 2px;}
+
+/* Windows：主面板窗口是不透明的，直角铺满，避免透明分层导致文字发虚 / 卡顿 */
+html.is-windows body.board-page{background:var(--panel);}
+html.is-windows body.board-page .board{border-radius:0;}

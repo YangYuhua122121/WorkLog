@@ -6,6 +6,10 @@
    ============================================================== */
 import { api } from './api.js';
 
+if (navigator.userAgent.includes('Windows')) {
+  document.documentElement.classList.add('is-windows');
+}
+
 /** 当前数据表内容（由 reloadRows 填充） */
 let DATA = [];
 
