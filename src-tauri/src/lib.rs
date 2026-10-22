@@ -245,13 +245,14 @@ pub(crate) fn slide_board_window(
 ) {
     let gen = {
         let st = app.state::<UiState>();
-        match st.board_anim.lock() {
+        let value = match st.board_anim.lock() {
             Ok(mut g) => {
                 *g += 1;
                 *g
             }
             Err(_) => return,
-        }
+        };
+        value
     };
     std::thread::spawn(move || {
         let Some(board) = app.get_webview_window("board") else {

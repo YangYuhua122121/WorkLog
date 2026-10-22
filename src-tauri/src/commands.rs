@@ -240,15 +240,15 @@ pub fn hide_board(app: AppHandle) -> Result<(), String> {
         let end_y = top - bh;
         crate::set_board_visible(&app, false);
         crate::slide_board_window(app.clone(), pos.y, end_y, true);
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(target_os = "windows"))]
     {
         board.hide().map_err(|e| format!("隐藏主面板失败：{e}"))?;
         crate::set_board_visible(&app, false);
+        Ok(())
     }
-    Ok(())
 }
 
 /// 悬浮球右键菜单：在鼠标位置弹出原生菜单
@@ -279,7 +279,9 @@ pub fn resize_clip_window(app: AppHandle, width: f64, height: f64) -> Result<(),
     let clip = app
         .get_webview_window("clip")
         .ok_or_else(|| "悬浮球窗口不存在".to_string())?;
+    #[cfg(target_os = "macos")]
     let board = app.get_webview_window("board");
+    #[cfg(target_os = "macos")]
     let board_visible = board.as_ref().and_then(|b| b.is_visible().ok()).unwrap_or(false);
     let pos = clip.outer_position().map_err(|e| e.to_string())?;
     let old = clip.outer_size().map_err(|e| e.to_string())?;
