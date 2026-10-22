@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.3 — 2026-10-22
+
+### 打包修复
+
+- macOS DMG 内增加「应用程序」快捷方式，可直接拖入 Applications；
+- macOS App 在 CI 中执行 ad-hoc 签名，修复部分机器提示应用损坏；
+- Windows 安装包内嵌 WebView2 Bootstrapper，缺失运行时时由安装器自动安装；
+- 新增启动日志：Windows 为 `%APPDATA%\com.worklog.desktop\startup.log`，macOS 为 `~/Library/Logs/workLog/startup.log`；
+- Release 追加 `SHA256SUMS.txt` 便于校验下载完整性。
+
 ## v0.2.2 — 2026-10-22
 
 ### 新增

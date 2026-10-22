@@ -41,5 +41,13 @@
         "additionalBrowserArgs": "--disable-features=CalculateNativeWinOcclusion"
       }
     ]
+  },
+  "bundle": {
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      }
+    }
   }
 }

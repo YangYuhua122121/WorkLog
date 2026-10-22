@@ -11,6 +11,46 @@ mod report;
 mod stats;
 mod timer;
 
+use std::io::Write as _;
+use std::path::PathBuf;
+
+/// 启动日志：Windows 下没有控制台，安装后打不开时用户可以把这份日志发回来。
+fn startup_log_path() -> PathBuf {
+    let base = if cfg!(target_os = "windows") {
+        std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir)
+            .join("com.worklog.desktop")
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir)
+            .join("Library/Logs/workLog")
+    } else {
+        std::env::temp_dir().join("workLog")
+    };
+    base.join("startup.log")
+}
+
+fn startup_log(message: &str) {
+    let path = startup_log_path();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = writeln!(
+            file,
+            "{} {}",
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            message
+        );
+    }
+}
+
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use std::sync::Mutex;
@@ -506,6 +546,11 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    std::panic::set_hook(Box::new(|info| {
+        startup_log(&format!("panic: {info}"));
+    }));
+    startup_log(&format!("start v{}", env!("CARGO_PKG_VERSION")));
+
     tauri::Builder::default()
         // 单实例：再次启动时把已有悬浮球（以及打开着的面板）显示出来，不再开第二个
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
