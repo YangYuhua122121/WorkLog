@@ -31,8 +31,8 @@ workLog 是一个 macOS / Windows 桌面端工作记录工具。它常驻一个�
 
 | 平台 | 安装包 |
 | --- | --- |
-| macOS（Apple Silicon / Intel） | [`workLog_0.2.4_universal.dmg`](https://github.com/YangYuhua122121/WorkLog/releases/download/v0.2.4/workLog_0.2.4_universal.dmg) |
-| Windows 10 / 11 | [`workLog_0.2.4_x64-setup.exe`](https://github.com/YangYuhua122121/WorkLog/releases/download/v0.2.4/workLog_0.2.4_x64-setup.exe) |
+| macOS（Apple Silicon / Intel） | [`workLog_0.2.5_universal.dmg`](https://github.com/YangYuhua122121/WorkLog/releases/download/v0.2.5/workLog_0.2.5_universal.dmg) |
+| Windows 10 / 11 | [`workLog_0.2.5_x64-setup.exe`](https://github.com/YangYuhua122121/WorkLog/releases/download/v0.2.5/workLog_0.2.5_x64-setup.exe) |
 
 > 目前安装包未签名 / 未公证：macOS 首次打开请右键 App →「打开」；Windows SmartScreen 选择「更多信息 → 仍要运行」。
 

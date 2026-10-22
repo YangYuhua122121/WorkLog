@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.2.5 — 2026-10-22
+
+### 修复
+
+- macOS 启动后托盘出现两个图标：托盘只由代码创建一次，移除配置里的 `trayIcon`；
+- 托盘对象改为由应用持有，避免被提前回收导致图标消失；
+- 单实例判断提前到创建窗口和托盘之前，重复启动不再重复初始化；
+- 二次启动时会把已有实例的悬浮球 / 面板唤出。
+
+### Windows
+
+- 安装器不再安装或修复系统 WebView2（`webviewInstallMode: skip`），避免影响系统 EdgeUpdate 注册项；
+- 启动日志记录 WebView2 是否已注册，缺失时给出明确提示；
+- 如仍提示 `0x8007139F 没有注册类`，请先安装 Microsoft Edge WebView2 Runtime 再启动。
+
+### 打包
+
+- macOS DMG 使用标准大图标布局，带 Applications 快捷方式，App 执行 ad-hoc 签名；
+- Release 附带 `SHA256SUMS.txt`。
+
 ## v0.2.4 — 2026-10-22
 
 ### 打包修复

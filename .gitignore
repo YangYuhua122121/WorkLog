@@ -18,7 +18,8 @@ dist/
 *.log
 
 # Local cargo mirror (keep local, don't force contributors to use it)
-src-tauri/.cargo/config.toml
+.cargo/
+src-tauri/.cargo/
 
 # Packaged artifacts
 *.app

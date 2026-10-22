@@ -1,7 +1,7 @@
 {
   "name": "worklog",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "description": "workLog · 悬浮球计时工作记录",
   "scripts": {

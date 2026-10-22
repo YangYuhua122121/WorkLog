@@ -45,8 +45,7 @@
   "bundle": {
     "windows": {
       "webviewInstallMode": {
-        "type": "offlineInstaller",
-        "silent": true
+        "type": "skip"
       }
     }
   }

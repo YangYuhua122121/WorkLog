@@ -14,6 +14,68 @@ mod timer;
 use std::io::Write as _;
 use std::path::PathBuf;
 
+/// 单实例用的进程文件：放在应用数据目录，记录持锁进程的 pid。
+fn instance_file() -> Option<PathBuf> {
+    let base = if cfg!(target_os = "windows") {
+        std::env::var_os("APPDATA").map(PathBuf::from)?
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"))?
+    } else {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?
+    };
+    Some(base.join("com.worklog.desktop").join("instance.pid"))
+}
+
+/// 进程是否活着（不引第三方 crate）
+fn pid_alive(pid: u32) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+        unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if handle.is_null() {
+                return false;
+            }
+            CloseHandle(handle);
+            true
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("kill")
+            .arg("-0")
+            .arg(pid.to_string())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+}
+
+fn read_instance_pid() -> Option<u32> {
+    let path = instance_file()?;
+    std::fs::read_to_string(path).ok()?.trim().parse().ok()
+}
+
+/// 已有活着的实例时返回它的 pid。
+fn existing_instance_pid() -> Option<u32> {
+    let pid = read_instance_pid()?;
+    if pid == std::process::id() {
+        return None;
+    }
+    pid_alive(pid).then_some(pid)
+}
+
+fn claim_instance() {
+    let Some(path) = instance_file() else { return };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(path, std::process::id().to_string());
+}
+
 /// 启动日志：Windows 下没有控制台，安装后打不开时用户可以把这份日志发回来。
 fn startup_log_path() -> PathBuf {
     let base = if cfg!(target_os = "windows") {
@@ -253,6 +315,9 @@ pub(crate) fn unlink_board_from_clip(app: &AppHandle) {
 #[cfg(not(target_os = "macos"))]
 fn set_window_levels(_app: &AppHandle) {}
 
+/// 持有托盘对象：Tauri 的托盘在 drop 时会移除图标，必须保证生命周期与应用一致
+struct TrayHandle(#[allow(dead_code)] tauri::tray::TrayIcon<Wry>);
+
 /// 托盘隐藏 / 显示时记住主面板是否打开着
 #[derive(Default)]
 struct UiState {
@@ -491,6 +556,22 @@ fn handle_clip_menu(app: &AppHandle, id: &str) {
 }
 
 /// 托盘菜单：显示 / 隐藏、开始 / 停止、退出
+/// Windows：把 WebView2 Runtime 的检测结果写进启动日志，方便排查「没有注册类」
+#[cfg(target_os = "windows")]
+fn log_webview2_status() {
+    const KEY: &str = r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+    let out = std::process::Command::new("reg")
+        .args(["query", &format!("HKLM\\{KEY}"), "/v", "pv"])
+        .output();
+    let detected = matches!(&out, Ok(o) if o.status.success());
+    startup_log(&format!("webview2 registered: {detected}"));
+    if !detected {
+        startup_log(
+            "webview2 runtime not found - install Microsoft Edge WebView2 Runtime (Evergreen) and retry",
+        );
+    }
+}
+
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "显示 / 隐藏", true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", "开始 / 停止计时", true, None::<&str>)?;
@@ -540,7 +621,10 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone());
     }
-    builder.build(app)?;
+    // 托盘只在这里创建一次；配置文件里不再声明 trayIcon，避免 macOS 出现两个状态栏图标
+    let tray = builder.build(app)?;
+    app.manage(TrayHandle(tray));
+    startup_log("tray built");
     Ok(())
 }
 
@@ -552,13 +636,26 @@ pub fn run() {
     startup_log(&format!("start v{}", env!("CARGO_PKG_VERSION")));
 
     tauri::Builder::default()
-        // 单实例：再次启动时把已有悬浮球（以及打开着的面板）显示出来，不再开第二个
+        // 单实例：第二次启动由 setup 里的 pid 检测直接退出；
+        // 这里只处理“已运行实例被唤起”时把悬浮球 / 面板显示出来
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_all(app);
         }))
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let handle = app.handle().clone();
+
+            // 单实例：在创建窗口 / 托盘之前就判断，重复启动直接退出
+            if let Some(prev) = existing_instance_pid() {
+                startup_log(&format!("second instance detected (first pid {prev}), exiting"));
+                // 先让第一个实例把悬浮球 / 面板显示出来，再退出
+                show_all(&handle);
+                std::thread::sleep(Duration::from_millis(300));
+                std::process::exit(0);
+            }
+            claim_instance();
+            startup_log(&format!("first instance pid {}", std::process::id()));
+
             config::init(&handle).map_err(std::io::Error::other)?;
             db::init(&handle).map_err(std::io::Error::other)?;
             app.manage(timer::TimerState::default());
@@ -578,6 +675,9 @@ pub fn run() {
             if let Ok(mut slot) = handle.state::<UiState>().clip_menu.lock() {
                 *slot = Some(clip_menu);
             }
+
+            #[cfg(target_os = "windows")]
+            log_webview2_status();
 
             set_window_levels(&handle);
 
