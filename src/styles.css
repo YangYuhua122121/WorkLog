@@ -864,3 +864,16 @@ html.is-windows body{
 
 /* 主面板顶栏可拖动（+ / 设置按钮除外） */
 .board__toolbar{cursor:grab; touch-action:none;}
+
+/* macOS / Linux：保留从夹子下方「抽出」的裁切式下滑（Windows 用原生窗口滑动） */
+html:not(.is-windows) .board{
+  clip-path:inset(0 0 100% 0);
+  transform:translateY(-18px);
+  transition:clip-path .28s cubic-bezier(.22,.9,.24,1), transform .28s cubic-bezier(.22,.9,.24,1);
+  will-change:clip-path, transform;
+}
+html:not(.is-windows) .unit.is-open .board{
+  clip-path:inset(0 0 0 0);
+  transform:translateY(0);
+}
+html.is-windows .board{clip-path:none; transform:none;}

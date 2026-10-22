@@ -73,6 +73,7 @@ pub(crate) fn set_clip_size(app: &AppHandle, width: u32, height: u32) {
     }
 }
 
+#[cfg(target_os = "windows")]
 pub(crate) fn board_height(app: &AppHandle) -> u32 {
     app.state::<UiState>()
         .board_size
@@ -90,13 +91,14 @@ fn board_is_visible(app: &AppHandle) -> bool {
 /// 拖动悬浮球时，把位置塞进通道，由单一跟随线程按 ~60Hz 取最新值同步主面板。
 /// 这样 Moved 事件只做一次 send，不再每条都查窗口 / 调 SetWindowPos，也不会为节流收尾
 /// 反复创建线程；拖动结束后最后一条位置一定会被同步。
+#[cfg(not(target_os = "macos"))]
 pub(crate) fn queue_board_follow(app: &AppHandle, cp: PhysicalPosition<i32>) {
     let st = app.state::<UiState>();
     if let Ok(tx) = st.board_follow_tx.lock() {
         if let Some(tx) = tx.as_ref() {
             let _ = tx.send(cp);
         }
-    }
+    };
 }
 
 fn board_follow_loop(app: AppHandle, rx: std::sync::mpsc::Receiver<PhysicalPosition<i32>>) {
@@ -225,6 +227,7 @@ struct UiState {
     /// 悬浮球最后一次移动时间，用于松手后只保存一次位置
     last_clip_move: Mutex<Option<Instant>>,
     /// 主面板原生滑动动画的代号：新动画/关闭时自增，旧动画线程自行退出
+    #[allow(dead_code)]
     board_anim: Mutex<u64>,
     /// 悬浮球右键菜单（只创建一次，避免菜单句柄泄漏）
     clip_menu: Mutex<Option<Menu<Wry>>>,
@@ -315,8 +318,6 @@ pub(crate) fn raise_clip_soon(app: &AppHandle, delay_ms: u64) {
     });
 }
 
-#[cfg(not(target_os = "windows"))]
-pub(crate) fn raise_clip_soon(_app: &AppHandle, _delay_ms: u64) {}
 
 /// Windows：让悬浮球始终压在主面板上面。
 /// 两个窗口都是 topmost，单独把悬浮球设成 topmost 并不能改变 topmost 组内的顺序；
