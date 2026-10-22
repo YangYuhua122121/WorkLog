@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     strategy:
@@ -56,3 +59,20 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
           exit $status
+      - name: Publish failure log
+        if: failure() && matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          {
+            echo '### cargo check'
+            cat src-tauri/cargo-check.log 2>/dev/null || true
+            echo
+            echo '### cargo test'
+            cat src-tauri/cargo-test.log 2>/dev/null || true
+          } > ci-error.log
+          git config user.name "workLog CI"
+          git config user.email "ci@worklog.local"
+          git checkout -B ci-debug
+          git add -f ci-error.log
+          git commit -m "ci: windows compile error"
+          git push -f origin ci-debug
