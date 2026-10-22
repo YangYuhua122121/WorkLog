@@ -1,0 +1,47 @@
+name: webview2-check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Build exe only
+        run: npm run tauri -- build --no-bundle
+      - name: WebView2 presence before
+        shell: pwsh
+        run: |
+          Get-ChildItem 'C:\Program Files (x86)\Microsoft\EdgeWebView\Application' -ErrorAction SilentlyContinue
+          Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue | Select-Object pv
+      - name: Run workLog for 25s
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem src-tauri/target/release -Filter 'worklog.exe' -File | Select-Object -First 1
+          if (-not $exe) { throw 'worklog.exe not found' }
+          Write-Host "running $($exe.FullName)"
+          $p = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 25
+          Write-Host "exited: $($p.HasExited)"
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+      - name: WebView2 presence after
+        shell: pwsh
+        run: |
+          Get-ChildItem 'C:\Program Files (x86)\Microsoft\EdgeWebView\Application' -ErrorAction SilentlyContinue
+          Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue | Select-Object pv
+          if (Test-Path "$env:APPDATA\com.worklog.desktop\startup.log") { Get-Content "$env:APPDATA\com.worklog.desktop\startup.log" }
