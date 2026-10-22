@@ -175,14 +175,6 @@ pub(crate) fn set_clip_size(app: &AppHandle, width: u32, height: u32) {
     }
 }
 
-#[cfg(target_os = "windows")]
-pub(crate) fn board_height(app: &AppHandle) -> u32 {
-    app.state::<UiState>()
-        .board_size
-        .lock()
-        .map(|g| g.1)
-        .unwrap_or(680)
-}
 
 fn board_is_visible(app: &AppHandle) -> bool {
     // 用缓存值，避免 60Hz 跟随线程反复查询 Win32 窗口状态
@@ -341,16 +333,41 @@ struct UiState {
     clip_menu: Mutex<Option<Menu<Wry>>>,
 }
 
-/// Windows：主面板「从屏幕上方滑下来」的窗口位置动画。
-/// 窗口本身不透明，所以不能靠 CSS 裁切/位移来做展开；移动窗口没有重绘，
-/// 既不会出现整块面板突然闪现，也不会让面板里的文字进入合成层而发虚。
+/// Windows：用窗口 region 做和 mac 一样的「从上往下展开」，窗口本身不移动。
+/// 比移动整窗便宜，也不会让 WebView 进入透明合成层导致文字发虚。
 #[cfg(target_os = "windows")]
-pub(crate) fn slide_board_window(
-    app: AppHandle,
-    from_y: i32,
-    to_y: i32,
-    hide_after: bool,
-) {
+fn set_board_region(app: &AppHandle, height: Option<u32>) {
+    use std::ffi::c_void;
+    use windows_sys::Win32::Graphics::Gdi::{CreateRectRgn, SetWindowRgn};
+    let Some(board) = app.get_webview_window("board") else { return };
+    let Ok(hwnd) = board.hwnd() else { return };
+    let Ok(size) = board.outer_size() else { return };
+    let rgn = unsafe {
+        match height {
+            Some(h) => {
+                let clipped = h.max(1).min(size.height);
+                CreateRectRgn(0, 0, size.width as i32, clipped as i32)
+            }
+            None => std::ptr::null_mut(),
+        }
+    };
+    unsafe {
+        SetWindowRgn(hwnd.0 as *mut c_void, rgn, 1);
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn reset_board_region(app: &AppHandle) {
+    set_board_region(app, None);
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn clip_board_region(app: &AppHandle) {
+    set_board_region(app, Some(1));
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn animate_board_region(app: AppHandle, reveal: bool, hide_after: bool) {
     let gen = {
         let st = app.state::<UiState>();
         let value = match st.board_anim.lock() {
@@ -363,10 +380,6 @@ pub(crate) fn slide_board_window(
         value
     };
     std::thread::spawn(move || {
-        let Some(board) = app.get_webview_window("board") else {
-            return;
-        };
-        let x = board.outer_position().map(|p| p.x).unwrap_or(0);
         let current = |app: &AppHandle| {
             app.state::<UiState>()
                 .board_anim
@@ -374,34 +387,39 @@ pub(crate) fn slide_board_window(
                 .map(|g| *g)
                 .unwrap_or(u64::MAX)
         };
-        // 先让 WebView 在起始位置画出第一帧，再开始滑动，避免滑动时露出空白
-        std::thread::sleep(Duration::from_millis(45));
+        std::thread::sleep(Duration::from_millis(24));
         if current(&app) != gen {
             return;
         }
-        let steps = 12u32;
-        let step_sleep = Duration::from_millis(180) / steps;
+        let Some(board) = app.get_webview_window("board") else { return };
+        let Ok(size) = board.outer_size() else { return };
+        let full = size.height;
+        let steps = 14u32;
+        let sleep = Duration::from_millis(180) / steps;
         for i in 0..=steps {
             if current(&app) != gen {
                 return;
             }
             let t = i as f64 / steps as f64;
             let eased = 1.0 - (1.0 - t).powi(3);
-            let y = from_y + (((to_y - from_y) as f64) * eased).round() as i32;
-            let _ = board.set_position(PhysicalPosition::new(x, y));
-            if !hide_after && (i == 0 || i == steps / 2) {
-                raise_clip(&app);
-            }
+            let h = if reveal {
+                (full as f64 * eased).round() as u32
+            } else {
+                (full as f64 * (1.0 - eased)).round() as u32
+            };
+            set_board_region(&app, Some(h.max(1)));
             if i < steps {
-                std::thread::sleep(step_sleep);
+                std::thread::sleep(sleep);
             }
         }
         if current(&app) != gen {
             return;
         }
         if hide_after {
+            set_board_region(&app, None);
             let _ = board.hide();
         } else {
+            set_board_region(&app, None);
             let _ = sync_board_position(&app);
             raise_clip(&app);
         }
@@ -509,7 +527,10 @@ fn show_all(app: &AppHandle) {
         #[cfg(target_os = "macos")]
         link_board_to_clip(app);
         #[cfg(target_os = "windows")]
-        raise_clip(app);
+        {
+            reset_board_region(app);
+            raise_clip(app);
+        }
         // 托盘恢复时前端可能还以为面板关着 / 正在做收起动画，通知它回到展开态
         let _ = app.emit("board-restored", ());
     }

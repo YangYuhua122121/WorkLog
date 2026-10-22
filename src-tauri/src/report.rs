@@ -85,8 +85,20 @@ fn record_value(rec: &ReportRecord, source: &str) -> Option<String> {
     let v = match source {
         "project_name" => rec.project_name.clone(),
         "task_name" => rec.task_name.clone(),
-        "result" => rec.result.clone(),
-        "next_goal" => rec.next_goal.clone(),
+        "result" => {
+            if rec.result.trim().is_empty() {
+                "（未填写成果）".into()
+            } else {
+                rec.result.clone()
+            }
+        }
+        "next_goal" => {
+            if rec.next_goal.trim().is_empty() {
+                "（未填写计划）".into()
+            } else {
+                rec.next_goal.clone()
+            }
+        }
         "duration" => fmt_duration(rec.duration),
         "priority" => rec.priority.clone(),
         "due_date" => rec.due_date.clone(),
@@ -485,17 +497,18 @@ mod tests {
         assert!(result_part.contains("项目A · 任务1：完成接口"), "{text}");
         assert!(result_part.contains("项目A · 任务2：写文档"), "成果非空就应输出：{text}");
         assert!(plan_part.contains("项目A · 任务1：联调"), "{text}");
-        assert!(!plan_part.contains("任务2"), "计划为空时该条不输出：{text}");
+        assert!(plan_part.contains("项目A · 任务2：（未填写计划）"), "计划为空也要输出，不能漏任务：{text}");
     }
 
     #[test]
-    fn empty_value_skips_record() {
+    fn empty_result_uses_placeholder() {
         let tpl = parse_template(DEFAULT_TEMPLATE).unwrap();
         let period = stats::resolve_period("当日");
         let recs = vec![rec("P", "T", "", "下一步")];
         let text = render_report(&tpl, &period, &recs);
         let (result_part, plan_part) = text.split_once("【工作计划】").expect("two sections");
-        assert!(!result_part.contains("P · T"), "成果为空时该条不输出：{text}");
+        // 看板里能看到的任务，报告里也要出现，不能因为成果为空整条消失
+        assert!(result_part.contains("P · T：（未填写成果）"), "{text}");
         assert!(plan_part.contains("P · T：下一步"), "{text}");
     }
 }

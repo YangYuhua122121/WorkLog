@@ -745,8 +745,15 @@ $('#detailSave').addEventListener('click', async () => {
     remark: $('#dNote').value,
     customFields: customValues('dCustomFields'),
   };
+  const oldId = item.id;
+  let identity = null;
   try {
-    await api.updateTask(item.projectId, item.taskId, payload);
+    identity = await api.updateTask(item.projectId, item.taskId, payload);
+    if (identity) {
+      item.projectId = identity.projectId;
+      item.taskId = identity.taskId;
+      item.id = identity.projectId + '-' + identity.taskId;
+    }
     /* 阶段改动逐条落库（与打开时的快照比对） */
     const original = state.detailSnapshot ? JSON.parse(state.detailSnapshot) : null;
     if (original) {
@@ -763,7 +770,14 @@ $('#detailSave').addEventListener('click', async () => {
   closeDetailAndRestore(true);
   state.summaryStale = true;
   await reloadRows();
-  toast('已保存修改');
+  if (identity && identity.projectId + '-' + identity.taskId !== oldId) {
+    state.selectedId = identity.projectId + '-' + identity.taskId;
+    const moved = $('#tbody').querySelector(`tr[data-id="${CSS.escape(String(state.selectedId))}"]`);
+    if (moved) selectRowVisual(moved);
+    toast('已保存，任务已移动到新项目并重新编号');
+  } else {
+    toast('已保存修改');
+  }
 });
 ['dProj', 'dTask', 'dDDL', 'dNote', 'sdOut', 'sdNext'].forEach(id => {
   $('#' + id).addEventListener('input', markDetailDirty);
@@ -1284,7 +1298,8 @@ function renderGantt(s) {
       /* 当日：仍按任务时间段画细条，但不显示任务名 */
       row.tasks.forEach((task, ti) => {
         const left = Math.max(0, Math.min(100, pctOf(task.start, s)));
-        const width = Math.max(0.7, Math.min(100 - left, pctOf(task.end, s) - left));
+        // 日报横轴已改为分钟；短任务不要被 0.7% 强行撑成十分钟
+        const width = Math.max(0.12, Math.min(100 - left, pctOf(task.end, s) - left));
         const cls = `pc${((row.colorIndex - 1) % AXIS_PC) + 1} ${shades[ti % shades.length]}`;
         html += `<div class="gantt__bar ${cls}" style="left:${left}%;width:${width}%" data-r="${ri}" data-t="${ti}"></div>`;
       });

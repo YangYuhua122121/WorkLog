@@ -1,6 +1,6 @@
 [package]
 name = "worklog"
-version = "0.2.7"
+version = "0.2.8"
 description = "workLog · 悬浮球计时工作记录"
 authors = ["workLog"]
 edition = "2021"
@@ -38,4 +38,4 @@ strip = true
 objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSGraphics"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi"] }

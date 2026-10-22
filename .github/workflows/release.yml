@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Tag to release, e.g. v0.2.7"
+        description: "Tag to release, e.g. v0.2.8"
         required: true
-        default: "v0.2.7"
+        default: "v0.2.8"
 
 permissions:
   contents: write
@@ -121,14 +121,14 @@ jobs:
             - Windows：下载 `workLog_*_x64-setup.exe`，SmartScreen 选择「更多信息 → 仍要运行」；安装器会按需安装 WebView2。
 
             ### 本次更新
-            - 修复上滑面板打开后目标行没有贴在字段栏下方（双端）
-            - 修改项目名会同步到该项目全部任务，汇总里不再出现新旧两个项目名
-            - Windows：展开 / 收起改为基于悬浮球的 24px 短滑动，不再从屏幕顶部飞入
-            - Windows：计时开始 / 停止时重新按中心定位悬浮球，修复横向漂移
-            - Windows：移除导致 WebView2 创建失败的 additionalBrowserArgs，恢复 v0.2.0 启动路径
-            - macOS：托盘只创建一次，并使用系统模板图标
-            - 新图标：白底黑色记事板，移除主面板拖动把手
+            - 新图标：白底、深灰简笔画记事板（夹子 + 圆点 + 板框），Windows 图标同步更新
+            - 项目名 / 任务名独立：改项目名会把任务移入新项目或已有同名项目，并重新编号；汇总同步
+            - 报告：成果 / 计划为空的任务也会出现在报告里，不再比看板少任务
+            - 日报甘特：横轴改为分钟刻度，短任务按实际分钟绘制；周 / 月仍按天
+            - Windows：用 Win32 窗口 region 做和 macOS 一样的从上往下展开，不再移动整块窗口
+            - Windows：计时开始 / 停止先改大小再按中心定位，修复悬浮球横向漂移
+            - Windows：恢复 v0.2.0 的 WebView2 创建路径，安装器不安装 / 修复系统 WebView2
+            - macOS：单托盘 + 系统模板图标
             - 性能：缓存面板可见状态、打开详情不再整表重建
-            - 单实例：重复启动在创建窗口前退出并唤出已有实例
 
 

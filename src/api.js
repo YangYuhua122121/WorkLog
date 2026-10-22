@@ -355,14 +355,31 @@ export const api = {
   },
   async updateTask(projectId, taskId, input) {
     const payload = { ...input, customFields: JSON.stringify(input.customFields || {}) };
-    if (isDesktop) { await invoke('update_task', { projectId, taskId, input: payload }); return; }
-    const row = mock.rows.find(r => r.projectId === projectId && r.taskId === taskId);
+    if (isDesktop) {
+      return await invoke('update_task', { projectId, taskId, input: payload });
+    }
+    let row = mock.rows.find(r => r.projectId === projectId && r.taskId === taskId);
     if (!row) throw new Error('任务不存在');
+    let targetProject = row.projectId;
+    let targetTask = row.taskId;
+    if (input.projectName !== row.proj) {
+      const existing = mock.rows.find(r => r.proj === input.projectName && r.id !== row.id);
+      if (existing) {
+        targetProject = existing.projectId;
+        targetTask = Math.max(...mock.rows.filter(r => r.projectId === targetProject).map(r => r.taskId)) + 1;
+      } else {
+        targetProject = Math.max(0, ...mock.rows.map(r => r.projectId)) + 1;
+        targetTask = 1;
+      }
+    }
+    row.projectId = targetProject; row.taskId = targetTask;
+    row.id = targetProject + '-' + targetTask;
     row.proj = input.projectName; row.task = input.taskName || '';
     row.ddl = input.dueDate || ''; row.pri = input.priority || row.pri;
     row.status = input.status || row.status; row.note = input.remark || '';
     row.custom = input.customFields || row.custom;
     row.lastOp = Date.now();
+    return { projectId: targetProject, taskId: targetTask };
   },
   async deleteTask(projectId, taskId) {
     if (isDesktop) { await invoke('delete_task', { projectId, taskId }); return; }
