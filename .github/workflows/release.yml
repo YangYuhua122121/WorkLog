@@ -118,7 +118,7 @@ jobs:
 
             ### 安装
             - macOS：下载 `workLog_*_universal.dmg`，把 workLog 拖入 Applications；首次打开如被拦截，右键 App →「打开」。
-            - Windows：下载 `workLog_*_x64-setup.exe`，SmartScreen 选择「更多信息 → 仍要运行」；安装器会按需安装 WebView2。
+            - Windows：下载 `workLog_*_x64-setup.exe`，SmartScreen 选择「更多信息 → 仍要运行」；安装器不再安装 WebView2，请确保系统已有 WebView2 Runtime。
 
             ### 本次更新
             - 新图标：白底、深灰简笔画记事板（夹子 + 圆点 + 板框），Windows 图标同步更新
