@@ -34,7 +34,7 @@ workLog 是一个 macOS / Windows 桌面端工作记录工具。它常驻一个�
 | macOS（Apple Silicon / Intel） | [`workLog_0.2.6_universal.dmg`](https://github.com/YangYuhua122121/WorkLog/releases/download/v0.2.6/workLog_0.2.6_universal.dmg) |
 | Windows 10 / 11 | [`workLog_0.2.6_x64-setup.exe`](https://github.com/YangYuhua122121/WorkLog/releases/download/v0.2.6/workLog_0.2.6_x64-setup.exe) |
 
-> 目前安装包未签名 / 未公证：macOS 首次打开请右键 App →「打开」；Windows SmartScreen 选择「更多信息 → 仍要运行」。
+> 目前安装包未签名 / 未公证：macOS 首次打开请右键 App →「打开」；Windows SmartScreen 选择「更多信息 → 仍要运行」。Windows 版使用系统 WebView2 Runtime，安装前请确认系统已安装 WebView2。
 
 如果 Windows 安装后打不开，可查看启动日志：
 
@@ -59,7 +59,7 @@ macOS 对应：
 
 - 单击悬浮球空白区：展开 / 收起主面板；
 - 按住悬浮球移动：拖动整个窗口；
-- 主面板展开后，按住顶栏把手（＋ 右侧的六点）、顶栏空白处或表格空白处：拖动整个窗口；
+- 主面板展开后，按住顶栏空白处或表格空白处：拖动整个窗口；
 - 右键悬浮球：展开 / 收起面板、开始 / 停止计时、打开设置、打开数据目录、隐藏到托盘、退出；
 - 双击数据行 / 对已选行再次单击：打开详情；
 - 右键数据行：导出 CSV / Excel、打开数据库目录、删除任务。
