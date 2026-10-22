@@ -14,15 +14,15 @@ permissions:
   contents: write
 
 jobs:
-  publish:
+  build:
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: macos-latest
-            args: "--target universal-apple-darwin --bundles dmg"
+            bundle: app
           - platform: windows-latest
-            args: "--bundles nsis"
+            bundle: nsis
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -46,13 +46,48 @@ jobs:
 
       - run: npm ci
 
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build macOS app
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: |
+          npm run tauri -- build --target universal-apple-darwin --bundles app
+          APP=$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP"
+          VERSION="${{ inputs.version || github.ref_name }}"
+          hdiutil create -volname workLog -srcfolder "$APP" -ov -format UDZO "workLog_${VERSION#v}_universal.dmg"
+
+      - name: Build Windows installer
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: npm run tauri -- build --bundles nsis
+
+      - uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ inputs.version || github.ref_name }}
-          releaseName: "workLog ${{ inputs.version || github.ref_name }}"
-          releaseBody: |
+          name: ${{ matrix.platform }}-bundle
+          path: |
+            workLog_*.dmg
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version || github.ref_name }}
+          name: "workLog ${{ inputs.version || github.ref_name }}"
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/*.dmg
+            artifacts/*.exe
+          body: |
             ## workLog ${{ inputs.version || github.ref_name }}
 
             macOS 与 Windows 安装包见下方 Assets。
@@ -72,6 +107,3 @@ jobs:
             - 计时状态跨重启恢复、单实例、统计看板、模板报告、AI 增强、导出 CSV / Excel
 
             安装包未签名 / 未公证；数据只存本地。
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
