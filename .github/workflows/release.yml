@@ -48,7 +48,10 @@ jobs:
 
       - name: Install dmgbuild
         if: matrix.platform == 'macos-latest'
-        run: python3 -m pip install --user dmgbuild
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/dmgvenv"
+          "$RUNNER_TEMP/dmgvenv/bin/pip" install --quiet dmgbuild
 
       - name: Build macOS app
         if: matrix.platform == 'macos-latest'
@@ -61,7 +64,7 @@ jobs:
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict "$APP"
           VERSION="${{ inputs.version || github.ref_name }}"
-          "$HOME/.local/bin/dmgbuild" -s .github/dmg-settings.py \
+          "$RUNNER_TEMP/dmgvenv/bin/dmgbuild" -s .github/dmg-settings.py \
             -D "app=$PWD/$APP" \
             -D "icon=$PWD/src-tauri/icons/icon.icns" \
             "workLog" "workLog_${VERSION#v}_universal.dmg"
