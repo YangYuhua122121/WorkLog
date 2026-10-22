@@ -37,8 +37,7 @@
         "visible": false,
         "shadow": false,
         "acceptFirstMouse": true,
-        "noRedirectionBitmap": false,
-        "additionalBrowserArgs": "--disable-features=CalculateNativeWinOcclusion"
+        "noRedirectionBitmap": false
       }
     ]
   },

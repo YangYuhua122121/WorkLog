@@ -500,14 +500,25 @@ function sheetTopForRow(row) {
   const headerH = scrollEl.querySelector('thead').offsetHeight;
   return headerH + (row ? row.offsetHeight : 40);
 }
+function rowContentTop(row) {
+  return row.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top + scrollEl.scrollTop;
+}
 function ensureScrollRoom(row) {
   const headerH = scrollEl.querySelector('thead').offsetHeight;
   const spacer = $('#tableSpacer');
   spacer.style.height = '0px';
-  const need = Math.max(0, row.offsetTop - headerH);
+  const rowTop = rowContentTop(row);
+  const need = Math.max(0, rowTop - headerH);
   const shortfall = need + scrollEl.clientHeight - scrollEl.scrollHeight;
   spacer.style.height = Math.max(0, shortfall + 2) + 'px';
   return need;
+}
+/** 面板展开后再把目标行贴到表头底部：先加滚动余量，再按视口坐标滚。 */
+function scrollRowToTop(row) {
+  if (!row) return;
+  ensureScrollRoom(row);
+  const headerH = scrollEl.querySelector('thead').offsetHeight;
+  scrollEl.scrollTop = Math.max(0, rowContentTop(row) - headerH);
 }
 function closeAndRestoreSheets() {
   const hadNew = state.showNewRow;
@@ -681,16 +692,22 @@ async function openDetail(id) {
   await openBoardNow();
   ensureTaskTab();
   state.clampEnabled = false;
+  const hadNewRow = state.showNewRow;
   state.showNewRow = false;
   state.selectedId = id;
   state.editingId = id;
   closeHeaderMenu();
-  renderTable();
-  const row = $('#tbody').querySelector(`tr[data-id="${CSS.escape(String(id))}"]`);
-  if (row) scrollEl.scrollTop = ensureScrollRoom(row);
+  let row = $('#tbody').querySelector(`tr[data-id="${CSS.escape(String(id))}"]`);
+  if (!row || hadNewRow) {
+    renderTable();
+    row = $('#tbody').querySelector(`tr[data-id="${CSS.escape(String(id))}"]`);
+  } else {
+    selectRowVisual(row);
+  }
   loadDetailForm(item);
   $('#sheet-detail').style.top = sheetTopForRow(row) + 'px';
   $('#sheet-detail').classList.add('open');
+  requestAnimationFrame(() => scrollRowToTop(row));
 }
 function closeDetailAndRestore(keepChanges) {
   if (!keepChanges && state.detailSnapshot) {
@@ -1113,12 +1130,17 @@ async function presentF3(pending) {
   await openBoardNow();
   ensureTaskTab();
   state.clampEnabled = false;
+  const hadNewRow = state.showNewRow;
   state.showNewRow = false;
   state.selectedId = id;
   closeHeaderMenu();
-  renderTable();
-  const row = $('#tbody').querySelector(`tr[data-id="${CSS.escape(String(id))}"]`);
-  if (row) scrollEl.scrollTop = ensureScrollRoom(row);
+  let row = $('#tbody').querySelector(`tr[data-id="${CSS.escape(String(id))}"]`);
+  if (!row || hadNewRow) {
+    renderTable();
+    row = $('#tbody').querySelector(`tr[data-id="${CSS.escape(String(id))}"]`);
+  } else {
+    selectRowVisual(row);
+  }
   const pendingNo = item.stages.length + 1;
   $('#f3Task').textContent = item.proj + ' · ' + item.task;
   $('#f3DDL').textContent = ddlText(item.ddl);
@@ -1133,6 +1155,7 @@ async function presentF3(pending) {
   fillTri('#f3Status', '未完成');
   $('#sheet-f3').style.top = sheetTopForRow(row) + 'px';
   $('#sheet-f3').classList.add('open');
+  requestAnimationFrame(() => scrollRowToTop(row));
   setTimeout(() => { try { $('#f3Out').focus(); } catch (_) {} }, 150);
 }
 $('#f3Status').addEventListener('click', e => {

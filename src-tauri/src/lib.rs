@@ -185,8 +185,11 @@ pub(crate) fn board_height(app: &AppHandle) -> u32 {
 }
 
 fn board_is_visible(app: &AppHandle) -> bool {
-    app.get_webview_window("board")
-        .and_then(|b| b.is_visible().ok())
+    // 用缓存值，避免 60Hz 跟随线程反复查询 Win32 窗口状态
+    app.state::<UiState>()
+        .board_was_visible
+        .lock()
+        .map(|v| *v)
         .unwrap_or(false)
 }
 
@@ -618,10 +621,17 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
             }
         });
 
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
+    // macOS 用模板图标（系统自动适配深浅色），Windows 用彩色图标；
+    // 托盘只在这里创建一次，配置文件里不再声明 trayIcon，避免 macOS 出现两个状态栏图标。
+    #[cfg(target_os = "macos")]
+    let tray_bytes = include_bytes!("../icons/tray-template.png");
+    #[cfg(not(target_os = "macos"))]
+    let tray_bytes = include_bytes!("../icons/tray-color.png");
+    builder = builder.icon(tauri::image::Image::from_bytes(tray_bytes)?);
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.icon_as_template(true);
     }
-    // 托盘只在这里创建一次；配置文件里不再声明 trayIcon，避免 macOS 出现两个状态栏图标
     let tray = builder.build(app)?;
     app.manage(TrayHandle(tray));
     startup_log("tray built");
