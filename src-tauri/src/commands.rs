@@ -165,20 +165,48 @@ pub fn save_config(app: AppHandle, cfg: Config) -> Result<(), String> {
     config::save(&app, &cfg)
 }
 
-/// 显示主面板窗口：先按悬浮球位置摆好，再显示
+/// 显示主面板窗口：先按悬浮球位置摆好，再显示。
+/// Windows 的窗口是不透明的，整块 body 都铺了面板色，直接 show 会「啪」地出现，
+/// 所以这里从屏幕上方滑入；macOS / Linux 仍是透明窗口，由前端 CSS 完成下滑。
 #[tauri::command]
 pub fn show_board(app: AppHandle) -> Result<(), String> {
     let board = app
         .get_webview_window("board")
         .ok_or_else(|| "主面板窗口不存在".to_string())?;
-    crate::sync_board_position(&app)?;
-    board.show().map_err(|e| format!("显示主面板失败：{e}"))?;
+
+    #[cfg(target_os = "windows")]
+    {
+        let (x, target_y) = crate::board_target_position(&app)?;
+        let bh = board
+            .outer_size()
+            .map(|s| s.height as i32)
+            .unwrap_or_else(|_| crate::board_height(&app) as i32);
+        let top = app
+            .get_webview_window("clip")
+            .and_then(|c| c.current_monitor().ok().flatten())
+            .map(|m| m.position().y)
+            .unwrap_or(target_y - bh);
+        let start_y = top - bh;
+        board
+            .set_position(tauri::PhysicalPosition::new(x, start_y))
+            .map_err(|e| format!("摆放主面板失败：{e}"))?;
+        board.show().map_err(|e| format!("显示主面板失败：{e}"))?;
+        crate::raise_clip(&app);
+        crate::slide_board_window(app.clone(), start_y, target_y, false);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        crate::sync_board_position(&app)?;
+        board.show().map_err(|e| format!("显示主面板失败：{e}"))?;
+    }
+
     #[cfg(target_os = "macos")]
     crate::link_board_to_clip(&app);
     crate::set_board_visible(&app, true);
     // macOS 通过窗口 level 保证悬浮球在上；Windows 用 SetWindowPos 重新提到 topmost 最前
     #[cfg(target_os = "windows")]
-    crate::raise_clip(&app);
+    crate::raise_clip_soon(&app, 90);
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     if let Some(clip) = app.get_webview_window("clip") {
         let _ = clip.show();
@@ -192,9 +220,57 @@ pub fn hide_board(app: AppHandle) -> Result<(), String> {
     let board = app
         .get_webview_window("board")
         .ok_or_else(|| "主面板窗口不存在".to_string())?;
-    board.hide().map_err(|e| format!("隐藏主面板失败：{e}"))?;
-    crate::set_board_visible(&app, false);
+    if !board.is_visible().unwrap_or(false) {
+        crate::set_board_visible(&app, false);
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let bh = board
+            .outer_size()
+            .map(|s| s.height as i32)
+            .unwrap_or_else(|_| crate::board_height(&app) as i32);
+        let pos = board.outer_position().map_err(|e| e.to_string())?;
+        let top = app
+            .get_webview_window("clip")
+            .and_then(|c| c.current_monitor().ok().flatten())
+            .map(|m| m.position().y)
+            .unwrap_or(pos.y - bh);
+        let end_y = top - bh;
+        crate::set_board_visible(&app, false);
+        crate::slide_board_window(app.clone(), pos.y, end_y, true);
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        board.hide().map_err(|e| format!("隐藏主面板失败：{e}"))?;
+        crate::set_board_visible(&app, false);
+    }
     Ok(())
+}
+
+/// 悬浮球右键菜单：在鼠标位置弹出原生菜单
+#[tauri::command]
+pub fn show_clip_menu(app: AppHandle) -> Result<(), String> {
+    let clip = app
+        .get_webview_window("clip")
+        .ok_or_else(|| "悬浮球窗口不存在".to_string())?;
+    let menu = {
+        let state = app.state::<crate::UiState>();
+        let guard = state
+            .clip_menu
+            .lock()
+            .map_err(|_| "菜单状态锁异常".to_string())?;
+        guard
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| "悬浮球菜单未初始化".to_string())?
+    };
+    clip
+        .popup_menu(&menu)
+        .map_err(|e| format!("打开悬浮球菜单失败：{e}"))
 }
 
 /// 悬浮球内容变化时调整它自己的窗口大小（保持中心点不动）

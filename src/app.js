@@ -95,10 +95,15 @@ function fillTri(sel, value) {
    主面板窗口（双窗口架构）
    --------------------------------------------------------------
    悬浮球在独立的 `clip` 窗口；主面板是固定的 480×680 窗口。
-   展开 = 显示主面板窗口 + 板子从上向下滑出；收起 = 反向滑回后隐藏窗口。
+   Windows：面板窗口不透明，由 Rust 让窗口整体从上方滑入 / 滑出；
+   macOS / Linux：面板窗口透明，用 CSS 让板子从上向下滑出，收起时反向滑回。
    不再 resize 任何窗口，因此不会闪。
    ===================================================================== */
 const unit = $('#unit');
+const isWindows = document.documentElement.classList.contains('is-windows');
+if (api.isDesktop) document.documentElement.classList.add('is-desktop');
+// Windows 主面板窗口不透明，整窗都是面板色：展开用原生窗口下滑，CSS 位移动画只给 mac / Linux
+const nativeBoardSlide = isWindows && api.isDesktop;
 let boardCloseTimer = null;
 
 function nextPaint() {
@@ -112,8 +117,19 @@ async function openBoardNow() {
     return;
   }
   state.boardOpen = true;
+  if (nativeBoardSlide) {
+    // 先让面板内容就位，再由 Rust 把窗口从屏幕上方滑下来；
+    // 这样窗口出现时就是完整面板，不会先闪一块空背景。
+    unit.classList.add('is-open');
+    await api.showBoardWindow();
+    return;
+  }
   await api.showBoardWindow();
+  // 透明窗口 + CSS 下滑：先强制一帧收起态，避免 WebView 第一帧直接画成展开态
+  unit.classList.remove('is-open');
+  void unit.offsetHeight;
   await nextPaint();
+  await new Promise(r => setTimeout(r, 34));
   if (state.boardOpen) unit.classList.add('is-open');
 }
 
@@ -132,9 +148,20 @@ function closeBoardNow() {
   state.detailSnapshot = null;
   state.clampEnabled = true;
   state.boardOpen = false;
+  clearTimeout(boardCloseTimer);
+  if (nativeBoardSlide) {
+    if (hadSheet) restoreScroll();
+    // Windows：面板保持展开态，Rust 把窗口整体上滑后再 hide；340ms 后才收起内容类
+    api.hideBoardWindow();
+    boardCloseTimer = setTimeout(() => {
+      if (state.boardOpen) return;
+      renderTable();
+      unit.classList.remove('is-open');
+    }, 380);
+    return;
+  }
   unit.classList.remove('is-open');
   if (hadSheet) restoreScroll();
-  clearTimeout(boardCloseTimer);
   boardCloseTimer = setTimeout(async () => {
     if (state.boardOpen) return;
     renderTable();
@@ -1019,6 +1046,33 @@ $('#board').addEventListener('mousedown', blockOutside, true);
 $('#board').addEventListener('click', blockOutside, true);
 
 /* =====================================================================
+   主面板拖动：顶栏把手 / 顶栏空白 / 表格空白处都可以拖动整个应用
+   （按钮、标签页、数据行、表单等交互元素除外）
+   ===================================================================== */
+let boardBarPress = null;
+const BOARD_DRAG_EXCLUDE = 'button, a, input, textarea, select, label, .tab, tr, th, td, .sheet, .remind, .combo-list, .ctx-menu, .close-btn, .field-chip, .report-box, #reportText, .summary';
+$('#board').addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  if (e.target.closest(BOARD_DRAG_EXCLUDE)) return;
+  if (anySheetOpen() || state.modalLocked) return;
+  if ($('#remind9')?.classList.contains('open')) return;
+  boardBarPress = { x: e.clientX, y: e.clientY };
+  e.preventDefault();
+});
+$('#board').addEventListener('pointermove', e => {
+  if (!boardBarPress) return;
+  const dx = e.clientX - boardBarPress.x;
+  const dy = e.clientY - boardBarPress.y;
+  if (Math.hypot(dx, dy) < 4) return;
+  boardBarPress = null;
+  api.startBoardDrag();
+});
+function endBoardBarPress() { boardBarPress = null; }
+window.addEventListener('pointerup', endBoardBarPress);
+window.addEventListener('pointercancel', endBoardBarPress);
+window.addEventListener('blur', endBoardBarPress);
+
+/* =====================================================================
    标签页切换
    ===================================================================== */
 $$('.tab').forEach(t => t.addEventListener('click', () => {
@@ -1517,6 +1571,12 @@ async function boot() {
   api.onEvent('toggle-board', () => toggleBoard());
   api.onEvent('clip-toggle-timer', () => toggleTimer());
   api.onEvent('clip-ready', () => emitClipState());
+  api.onEvent('open-settings', () => { openSettings(); });
+  api.onEvent('board-restored', () => {
+    clearTimeout(boardCloseTimer);
+    state.boardOpen = true;
+    unit.classList.add('is-open');
+  });
   api.onEvent('board-force-closed', () => {
     state.boardOpen = false;
     state.detailDirty = false;

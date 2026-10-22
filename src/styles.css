@@ -69,7 +69,7 @@
     --sel-bg:rgba(10,132,255,.35);
 
     --font-serif:Georgia,"Songti SC","Times New Roman",serif;
-    --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
     --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     color-scheme:dark;
   }
@@ -167,8 +167,17 @@
 
   .board__toolbar{
     flex:0 0 46px; display:flex; align-items:center; justify-content:space-between;
-    padding:0 10px;
+    padding:0 10px; position:relative;
   }
+  /* 主面板顶栏拖动把手：避开被悬浮球盖住的中央区域 */
+  .board__grip{
+    position:absolute; left:52px; top:5px; width:20px; height:36px;
+    display:grid; place-items:center; color:var(--t3); cursor:grab;
+    border-radius:8px; opacity:.7; transition:opacity .15s ease-out, background-color .15s ease-out;
+  }
+  .board__grip:hover{opacity:1; background:var(--fill-2); color:var(--t2);}
+  .board__grip:active{cursor:grabbing;}
+  .board__grip svg{width:16px;height:16px;}
   .tool-ic{
     width:36px; height:36px; border:none; background:transparent; border-radius:8px;
     cursor:pointer; display:grid; place-items:center; color:var(--t2); padding:0;
@@ -306,7 +315,8 @@
     transform:translateY(101%); visibility:hidden;
     transition:transform .24s ease-out, visibility .24s;
   }
-  .sheet.open{transform:translateY(0); visibility:visible;}
+  /* 展开后回到 none，避免整块上滑面板长期留在合成层里（Windows 下会发虚） */
+  .sheet.open{transform:none; visibility:visible;}
   .sheet--tabs{top:0;}
   .sheet__head{
     flex:0 0 44px; display:flex; align-items:center; justify-content:space-between;
@@ -739,6 +749,8 @@
   /* 动效降级 */
   @media (prefers-reduced-motion:reduce){
     *{animation:none !important; transition:none !important;}
+    /* 主面板展开 / 收起是核心层级反馈，保留这一条，避免「突然出现」 */
+    .board{transition:transform .24s ease-out !important;}
   }
 
 
@@ -757,8 +769,8 @@ body{min-height:0; zoom:1 !important;}
 }
 .unit.is-dragging,.unit.is-moved{transform:none;}
 .clip{
-  position:absolute; top:8px; left:50%; transform:translateX(-50%);
-  z-index:6; margin:0;
+  position:absolute; top:8px; left:0; right:0; margin:0 auto;
+  z-index:6;
 }
 .unit.is-open .clip{margin-bottom:0; cursor:pointer;}
 .board-slot{
@@ -770,13 +782,12 @@ body{min-height:0; zoom:1 !important;}
 .board{
   position:relative; left:auto; top:auto; width:100%; height:100%;
   border-radius:12px;
-  /* 从夹子下方「拉出来」：只露出顶部开始的区域，再逐渐向下展开 */
-  clip-path:inset(0 0 100% 0);
-  transform:translateY(-18px);
-  transition:clip-path .28s cubic-bezier(.22,.9,.24,1), transform .28s cubic-bezier(.22,.9,.24,1);
-  will-change:clip-path, transform;
+  /* 主面板从上方滑入：由 .board-slot 的 overflow 负责裁切。
+     展开后 transform 回到 none，避免整块面板长期留在合成层里导致 Windows 文字发虚。 */
+  transform:translateY(-100%);
+  transition:transform .30s cubic-bezier(.22,.9,.24,1);
 }
-.unit.is-open .board{clip-path:inset(0 0 0 0); transform:translateY(0);}
+.unit.is-open .board{transform:none;}
 .unit:not(.is-open) .board{height:100%; border-color:var(--line); opacity:1; pointer-events:none;}
 
 /* 汇总页空态 / 报告正文 */
@@ -843,3 +854,13 @@ body.board-page .board{height:100%;}
 /* Windows：主面板窗口是不透明的，直角铺满，避免透明分层导致文字发虚 / 卡顿 */
 html.is-windows body.board-page{background:var(--panel);}
 html.is-windows body.board-page .board{border-radius:0;}
+/* Windows 展开 / 收起是原生窗口滑动（Rust），不要再叠一层 CSS 位移；
+   同时交还给系统 ClearType，不要强制灰度抗锯齿。 */
+html.is-windows.is-desktop .board{transition:none !important;}
+html.is-windows body{
+  -webkit-font-smoothing:auto;
+  -moz-osx-font-smoothing:auto;
+}
+
+/* 主面板顶栏可拖动（+ / 设置按钮除外） */
+.board__toolbar{cursor:grab; touch-action:none;}

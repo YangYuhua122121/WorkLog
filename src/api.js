@@ -551,12 +551,29 @@ export const api = {
     if (!isDesktop) return;
     try { await T.window.getCurrentWindow().startDragging(); } catch (_) { /* 忽略 */ }
   },
+  /** 主面板顶栏拖动：直接拖悬浮球窗口，主面板由现有跟随逻辑带走 */
+  async startBoardDrag() {
+    if (!isDesktop) return;
+    try {
+      const winApi = T.window;
+      let clip = null;
+      if (winApi && winApi.Window && winApi.Window.getByLabel) {
+        clip = await winApi.Window.getByLabel('clip');
+      } else if (winApi && winApi.getAllWindows) {
+        clip = (await winApi.getAllWindows()).find(w => w.label === 'clip');
+      }
+      if (clip && clip.startDragging) {
+        await clip.startDragging();
+      }
+    } catch (_) { /* 忽略 */ }
+  },
+  /** 悬浮球右键菜单（原生菜单，可弹出到小窗口之外） */
+  async showClipMenu() {
+    if (!isDesktop) return;
+    try { await invoke('show_clip_menu'); } catch (_) { /* 忽略 */ }
+  },
   async saveWindowPosition(x, y) {
     if (!isDesktop) return;
     try { await invoke('save_window_pos', { x: Math.round(x), y: Math.round(y) }); } catch (_) { /* 忽略 */ }
-  },
-  onWindowMoved(cb) {
-    if (!isDesktop) return;
-    try { T.window.getCurrentWindow().onMoved(e => cb(e.payload)); } catch (_) { /* 忽略 */ }
   },
 };

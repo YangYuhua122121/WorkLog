@@ -1,6 +1,6 @@
 [package]
 name = "worklog"
-version = "0.2.1"
+version = "0.2.2"
 description = "workLog · 悬浮球计时工作记录"
 authors = ["workLog"]
 edition = "2021"

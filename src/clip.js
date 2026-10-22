@@ -207,20 +207,22 @@ $('#recBtn').addEventListener('click', e => {
   api.emit('clip-toggle-timer');
 });
 
-/* ---------- 位置保存 ---------- */
-let saveTimer = null;
-api.onWindowMoved(() => {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    const p = await api.windowOuterPosition();
-    if (!p) return;
-    // 配置里按「空闲宽度」保存，重启后悬浮球中心不漂
-    const idleW = state.idleW;
-    const x = state.running
-      ? Math.round(p.x + (state.winW - idleW) * state.scale / 2)
-      : p.x;
-    api.saveWindowPosition(x, p.y);
-  }, 500);
+/* ---------- 右键菜单 / 位置保存 ---------- */
+clip.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  api.showClipMenu();
+});
+
+// Rust 会在松手 450ms 后只发一次「位置已稳定」，避免拖动期间每条 Moved 都走 WebView IPC
+api.onEvent('clip-moved-settled', async () => {
+  const p = await api.windowOuterPosition();
+  if (!p) return;
+  // 配置里按「空闲宽度」保存，重启后悬浮球中心不漂
+  const idleW = state.idleW;
+  const x = state.running
+    ? Math.round(p.x + (state.winW - idleW) * state.scale / 2)
+    : p.x;
+  api.saveWindowPosition(x, p.y);
 });
 
 /* ---------- 启动 ---------- */
