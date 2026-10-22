@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Tag to release, e.g. v0.2.6"
+        description: "Tag to release, e.g. v0.2.7"
         required: true
-        default: "v0.2.6"
+        default: "v0.2.7"
 
 permissions:
   contents: write
@@ -121,20 +121,14 @@ jobs:
             - Windows：下载 `workLog_*_x64-setup.exe`，SmartScreen 选择「更多信息 → 仍要运行」；安装器会按需安装 WebView2。
 
             ### 本次更新
-            - Windows：移除导致 WebView2 创建失败的 `additionalBrowserArgs`，恢复 v0.2.0 的启动路径
-            - Windows：安装器不再安装 / 修复系统 WebView2
+            - 修复上滑面板打开后目标行没有贴在字段栏下方（双端）
+            - 修改项目名会同步到该项目全部任务，汇总里不再出现新旧两个项目名
+            - Windows：展开 / 收起改为基于悬浮球的 24px 短滑动，不再从屏幕顶部飞入
+            - Windows：计时开始 / 停止时重新按中心定位悬浮球，修复横向漂移
+            - Windows：移除导致 WebView2 创建失败的 additionalBrowserArgs，恢复 v0.2.0 启动路径
             - macOS：托盘只创建一次，并使用系统模板图标
-            - 修复上滑面板打开后目标数据行没有贴到表头顶部
-            - 新记事板图标，移除主面板拖动把手
-            - 性能：缓存主面板可见状态、打开详情不再整表重建
+            - 新图标：白底黑色记事板，移除主面板拖动把手
+            - 性能：缓存面板可见状态、打开详情不再整表重建
             - 单实例：重复启动在创建窗口前退出并唤出已有实例
-            - Windows：主面板改为不透明窗口并原生滑动展开 / 收起，修复卡顿与文字发虚
-            - Windows：按窗口相对层级保证悬浮球始终在面板之上
-            - 主面板顶栏把手 / 顶栏空白 / 表格空白均可拖动整个应用
-            - 右键悬浮球：展开 / 收起、开始 / 停止、打开设置、打开数据目录、隐藏到托盘、退出
-            - macOS 主面板原生跟随悬浮球；Windows 跟随改为 ~60Hz 最新位置同步
-            - 悬浮球位置只在松手后保存一次，拖动更顺
-            - 周 / 月甘特按项目 × 天聚合，悬浮查看当天任务时长
-            - 计时状态跨重启恢复、单实例、统计看板、模板报告、AI 增强、导出 CSV / Excel
 
-            安装包未签名 / 未公证；数据只存本地。
+

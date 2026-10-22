@@ -194,6 +194,13 @@ pub fn update(
         } else {
             "中".into()
         };
+        // 项目名是项目级字段（同一 project_id 的多个任务共用展示名），
+        // 改项目名时同步更新该项目下所有任务，否则汇总里会出现新旧两个项目名。
+        conn.execute(
+            "UPDATE project_task SET project_name = ?2 WHERE project_id = ?1",
+            params![project_id, input.project_name.trim()],
+        )
+        .map_err(|e| format!("保存失败：{e}"))?;
         let n = conn
             .execute(
                 "UPDATE project_task

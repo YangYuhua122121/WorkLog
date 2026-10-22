@@ -509,8 +509,10 @@ function ensureScrollRoom(row) {
   spacer.style.height = '0px';
   const rowTop = rowContentTop(row);
   const need = Math.max(0, rowTop - headerH);
-  const shortfall = need + scrollEl.clientHeight - scrollEl.scrollHeight;
-  spacer.style.height = Math.max(0, shortfall + 2) + 'px';
+  // 表格内容可能比可视区矮；这时 scrollHeight 会被抬到 clientHeight，
+  // 用 scrollHeight 算余量会少加一截，导致根本滚不动。按表格实际高度算。
+  const tableH = scrollEl.querySelector('table')?.offsetHeight || 0;
+  spacer.style.height = Math.max(0, need + scrollEl.clientHeight - tableH + 2) + 'px';
   return need;
 }
 /** 面板展开后再把目标行贴到表头底部：先加滚动余量，再按视口坐标滚。 */

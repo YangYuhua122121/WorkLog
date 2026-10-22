@@ -177,16 +177,15 @@ pub fn show_board(app: AppHandle) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         let (x, target_y) = crate::board_target_position(&app)?;
-        let bh = board
-            .outer_size()
-            .map(|s| s.height as i32)
-            .unwrap_or_else(|_| crate::board_height(&app) as i32);
-        let top = app
-            .get_webview_window("clip")
-            .and_then(|c| c.current_monitor().ok().flatten())
-            .map(|m| m.position().y)
-            .unwrap_or(target_y - bh);
-        let start_y = top - bh;
+        // 只做 24px 的下滑，面板从悬浮球下方抽出，而不是从屏幕顶部飞下来
+        let scale = app
+            .state::<crate::UiState>()
+            .scale
+            .lock()
+            .map(|s| *s)
+            .unwrap_or(1.0);
+        let slide = (24.0 * scale).round() as i32;
+        let start_y = target_y - slide;
         board
             .set_position(tauri::PhysicalPosition::new(x, start_y))
             .map_err(|e| format!("摆放主面板失败：{e}"))?;
@@ -227,17 +226,15 @@ pub fn hide_board(app: AppHandle) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        let bh = board
-            .outer_size()
-            .map(|s| s.height as i32)
-            .unwrap_or_else(|_| crate::board_height(&app) as i32);
         let pos = board.outer_position().map_err(|e| e.to_string())?;
-        let top = app
-            .get_webview_window("clip")
-            .and_then(|c| c.current_monitor().ok().flatten())
-            .map(|m| m.position().y)
-            .unwrap_or(pos.y - bh);
-        let end_y = top - bh;
+        let scale = app
+            .state::<crate::UiState>()
+            .scale
+            .lock()
+            .map(|s| *s)
+            .unwrap_or(1.0);
+        let slide = (24.0 * scale).round() as i32;
+        let end_y = pos.y - slide;
         crate::set_board_visible(&app, false);
         crate::slide_board_window(app.clone(), pos.y, end_y, true);
         Ok(())
@@ -290,11 +287,17 @@ pub fn resize_clip_window(app: AppHandle, width: f64, height: f64) -> Result<(),
     #[cfg(target_os = "macos")]
     crate::unlink_board_from_clip(&app);
     let new_w = (width * scale).round() as i32;
-    let x = pos.x + (old.width as i32 - new_w) / 2;
-    clip.set_position(tauri::PhysicalPosition::new(x, pos.y))
-        .map_err(|e| format!("调整悬浮球位置失败：{e}"))?;
+    // 先改大小再改位置：Windows 上 set_position 是异步的，先定位后改大小
+    // 容易被系统按新宽度重新摆放，导致计时开始/停止时横向漂移。
     clip.set_size(tauri::LogicalSize::new(width, height))
         .map_err(|e| format!("调整悬浮球大小失败：{e}"))?;
+    let actual_w = clip
+        .outer_size()
+        .map(|s| s.width as i32)
+        .unwrap_or(new_w);
+    let x = pos.x + (old.width as i32 - actual_w) / 2;
+    clip.set_position(tauri::PhysicalPosition::new(x, pos.y))
+        .map_err(|e| format!("调整悬浮球位置失败：{e}"))?;
     crate::set_clip_size(&app, new_w.max(1) as u32, (height * scale).round() as u32);
     crate::sync_board_position(&app)?;
     #[cfg(target_os = "macos")]

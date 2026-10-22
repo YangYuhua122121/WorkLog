@@ -379,8 +379,8 @@ pub(crate) fn slide_board_window(
         if current(&app) != gen {
             return;
         }
-        let steps = 20u32;
-        let step_sleep = Duration::from_millis(300) / steps;
+        let steps = 12u32;
+        let step_sleep = Duration::from_millis(180) / steps;
         for i in 0..=steps {
             if current(&app) != gen {
                 return;
