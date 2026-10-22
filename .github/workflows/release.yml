@@ -78,6 +78,9 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: List release files
+        run: find artifacts -type f -maxdepth 6 -print
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.version || github.ref_name }}
@@ -85,8 +88,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            artifacts/*.dmg
-            artifacts/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+          overwrite_files: true
           body: |
             ## workLog ${{ inputs.version || github.ref_name }}
 
