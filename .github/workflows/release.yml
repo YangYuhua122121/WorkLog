@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Tag to release, e.g. v0.2.3"
+        description: "Tag to release, e.g. v0.2.4"
         required: true
-        default: "v0.2.3"
+        default: "v0.2.4"
 
 permissions:
   contents: write
@@ -46,6 +46,10 @@ jobs:
 
       - run: npm ci
 
+      - name: Install dmgbuild
+        if: matrix.platform == 'macos-latest'
+        run: python3 -m pip install --user dmgbuild
+
       - name: Build macOS app
         if: matrix.platform == 'macos-latest'
         shell: bash
@@ -57,11 +61,10 @@ jobs:
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict "$APP"
           VERSION="${{ inputs.version || github.ref_name }}"
-          STAGE="$RUNNER_TEMP/workLog-dmg"
-          mkdir -p "$STAGE"
-          cp -R "$APP" "$STAGE/"
-          ln -s /Applications "$STAGE/Applications"
-          hdiutil create -volname workLog -srcfolder "$STAGE" -ov -format UDZO "workLog_${VERSION#v}_universal.dmg"
+          "$HOME/.local/bin/dmgbuild" -s .github/dmg-settings.py \
+            -D "app=$PWD/$APP" \
+            -D "icon=$PWD/src-tauri/icons/icon.icns" \
+            "workLog" "workLog_${VERSION#v}_universal.dmg"
 
       - name: Build Windows installer
         if: matrix.platform == 'windows-latest'
@@ -115,8 +118,9 @@ jobs:
             - Windows：下载 `workLog_*_x64-setup.exe`，SmartScreen 选择「更多信息 → 仍要运行」；安装器会按需安装 WebView2。
 
             ### 本次更新
-            - macOS：DMG 增加 Applications 快捷方式，App 执行 ad-hoc 签名
-            - Windows：安装包内嵌 WebView2 Bootstrapper
+            - macOS：DMG 使用标准大图标布局，带 Applications 快捷方式，App 执行 ad-hoc 签名
+            - macOS：恢复彩色托盘图标
+            - Windows：安装包内嵌 WebView2 离线安装器，修复“没有注册类”无法创建 WebView2
             - 新增启动日志与 SHA256SUMS.txt
             - Windows：主面板改为不透明窗口并原生滑动展开 / 收起，修复卡顿与文字发虚
             - Windows：按窗口相对层级保证悬浮球始终在面板之上
