@@ -480,6 +480,7 @@
 
   /* ================= 汇总页（P6） ================= */
   .summary{padding:12px 14px 20px; overflow:auto; height:100%;}
+  #expProject{height:30px; padding:0 8px;}
   .period-bar{display:flex;margin-bottom:12px;}
   .period-bar .seg{flex:1;}
   .period-bar .seg button{flex:1;padding:7px 0;font-size:0.75rem;}
@@ -507,9 +508,9 @@
   .gantt__row{display:flex;align-items:center;height:31px;}
   .gantt__rowlab{flex:0 0 104px;font-size:0.656rem;color:var(--t2);padding-right:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gantt__track{position:relative;flex:1;height:23px;background:var(--fill-1);border-radius:5px;}
-  .gantt__grid{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft);}
+  .gantt__grid{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft);pointer-events:none;}
   .gantt__bar{
-    position:absolute;top:2px;bottom:2px;
+    position:absolute;top:2px;bottom:2px;min-width:5px;
     border-radius:5px;font-size:0.594rem;color:#fff;border:1px solid transparent;
     padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     display:flex;align-items:center;cursor:default;

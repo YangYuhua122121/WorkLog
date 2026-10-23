@@ -67,7 +67,7 @@ fn csv_escape(v: &str) -> String {
 
 /// 导出项目-任务清单，返回文件绝对路径
 #[tauri::command]
-pub fn export_tasks(app: AppHandle, db: tauri::State<'_, Db>, format: String) -> Result<String, String> {
+pub async fn export_tasks(app: AppHandle, db: tauri::State<'_, Db>, format: String) -> Result<String, String> {
     let rows = project::list(&db)?;
     let dir = export_dir(&app);
     fs::create_dir_all(&dir).map_err(|e| format!("创建导出目录失败：{e}"))?;
@@ -193,7 +193,7 @@ fn full_values(r: &FullRow) -> Vec<String> {
 
 /// 按日区间 + 项目名导出全量数据（project_task LEFT JOIN stage）
 #[tauri::command]
-pub fn export_records(
+pub async fn export_records(
     app: AppHandle,
     db: tauri::State<'_, Db>,
     start: String,

@@ -326,6 +326,87 @@ pub fn update(
     })
 }
 
+/// 合并历史上重复的项目名：同一名称只保留最小 project_id，
+/// 其余项目下的任务 / 阶段迁移过去并重新编号（防止汇总出现两个同名项目）。
+pub fn merge_duplicate_projects(conn: &rusqlite::Connection) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT project_name, GROUP_CONCAT(project_id)
+             FROM (SELECT DISTINCT project_name, project_id FROM project_task)
+             GROUP BY project_name HAVING COUNT(*) > 1",
+        )
+        .map_err(|e| e.to_string())?;
+    let groups: Vec<(String, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+    for (_name, csv) in groups {
+        let mut ids: Vec<i64> = csv
+            .split(',')
+            .filter_map(|x| x.trim().parse().ok())
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        if ids.len() < 2 {
+            continue;
+        }
+        let canonical = ids[0];
+        conn.execute("BEGIN IMMEDIATE", [])
+            .map_err(|e| format!("合并项目事务失败：{e}"))?;
+        let _ = conn.execute("PRAGMA defer_foreign_keys = ON", []);
+        let result: Result<(), String> = (|| {
+            for pid in ids.iter().skip(1) {
+                let task_ids: Vec<i64> = {
+                    let mut s = conn
+                        .prepare("SELECT task_id FROM project_task WHERE project_id = ?1 ORDER BY task_id")
+                        .map_err(|e| e.to_string())?;
+                    let rows = s
+                        .query_map(params![pid], |r| r.get(0))
+                        .map_err(|e| e.to_string())?
+                        .collect::<Result<Vec<i64>, _>>()
+                        .map_err(|e| e.to_string())?;
+                    rows
+                };
+                for tid in task_ids {
+                    let next: i64 = conn
+                        .query_row(
+                            "SELECT COALESCE(MAX(task_id), 0) + 1 FROM project_task WHERE project_id = ?1",
+                            params![canonical],
+                            |r| r.get(0),
+                        )
+                        .map_err(|e| e.to_string())?;
+                    conn.execute(
+                        "UPDATE project_task SET project_id = ?1, task_id = ?2
+                         WHERE project_id = ?3 AND task_id = ?4",
+                        params![canonical, next, pid, tid],
+                    )
+                    .map_err(|e| format!("迁移任务失败：{e}"))?;
+                    conn.execute(
+                        "UPDATE stage SET project_id = ?1, task_id = ?2
+                         WHERE project_id = ?3 AND task_id = ?4",
+                        params![canonical, next, pid, tid],
+                    )
+                    .map_err(|e| format!("迁移阶段失败：{e}"))?;
+                }
+            }
+            Ok(())
+        })();
+        match result {
+            Ok(()) => {
+                conn.execute("COMMIT", [])
+                    .map_err(|e| format!("提交合并失败：{e}"))?;
+            }
+            Err(e) => {
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(e);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// 删除任务（连同阶段）
 pub fn delete(db: &Db, project_id: i64, task_id: i64) -> Result<(), String> {
     with_conn(db, |conn| {
@@ -396,5 +477,44 @@ mod tests {
             .query_row("SELECT project_id, task_id FROM stage WHERE stage_id=1", [], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap();
         assert_eq!(stage_owner, (2, 1), "阶段记录应随任务迁移");
+    }
+}
+
+
+#[cfg(test)]
+mod merge_tests {
+    use super::*;
+    use crate::db::schema;
+
+    #[test]
+    fn merges_same_name_projects() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute("PRAGMA foreign_keys=ON", []).unwrap();
+        schema::migrate(&conn).unwrap();
+        for (pid, tid) in [(1, 1), (1, 2), (2, 1), (2, 2)] {
+            conn.execute(
+                "INSERT INTO project_task
+                 (project_id, task_id, project_name, task_name, status, priority, created_at, updated_at, custom_fields)
+                 VALUES (?1, ?2, '重复项目', 'T', '未完成', '中', '2026-10-20 09:00:00', '2026-10-20 09:00:00', '{}')",
+                params![pid, tid],
+            )
+            .unwrap();
+        }
+        conn.execute(
+            "INSERT INTO stage VALUES (2, 2, 1, '2026-10-20 09:00:00', '2026-10-20 10:00:00', 3600, 'r', 'n', '未完成')",
+            [],
+        )
+        .unwrap();
+        merge_duplicate_projects(&conn).unwrap();
+        let pids: i64 = conn
+            .query_row("SELECT COUNT(DISTINCT project_id) FROM project_task", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(pids, 1);
+        let tasks: i64 = conn.query_row("SELECT COUNT(*) FROM project_task", [], |r| r.get(0)).unwrap();
+        assert_eq!(tasks, 4);
+        let stage_owner: i64 = conn
+            .query_row("SELECT project_id FROM stage WHERE stage_id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(stage_owner, 1);
     }
 }

@@ -219,7 +219,9 @@ pub fn init(app: &AppHandle) -> Result<(), String> {
     // 用户自己改过的 Skill 不会命中这个特征，保持不动。
     let skill = cfg_sub.join("report-skill.md");
     if let Ok(old) = fs::read_to_string(&skill) {
-        if old.contains("version: 2") && old.contains("初稿里的空值占位原样保留") {
+        if (old.contains("version: 2") && old.contains("初稿里的空值占位原样保留"))
+            || (old.contains("version: 3") && old.contains("## 允许的扩写"))
+        {
             let _ = fs::write(&skill, DEFAULT_SKILL);
         }
     }

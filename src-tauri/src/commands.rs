@@ -20,7 +20,7 @@ pub struct AppInfo {
 }
 
 #[tauri::command]
-pub fn app_info(app: AppHandle) -> Result<AppInfo, String> {
+pub async fn app_info(app: AppHandle) -> Result<AppInfo, String> {
     let db_path = app
         .path()
         .app_data_dir()
@@ -43,22 +43,22 @@ pub fn app_info(app: AppHandle) -> Result<AppInfo, String> {
 /* ---------------- 数据表 / 详情 ---------------- */
 
 #[tauri::command]
-pub fn list_tasks(db: State<'_, Db>) -> Result<Vec<project::TaskRow>, String> {
+pub async fn list_tasks(db: State<'_, Db>) -> Result<Vec<project::TaskRow>, String> {
     project::list(&db)
 }
 
 #[tauri::command]
-pub fn get_task(db: State<'_, Db>, project_id: i64, task_id: i64) -> Result<project::TaskDetail, String> {
+pub async fn get_task(db: State<'_, Db>, project_id: i64, task_id: i64) -> Result<project::TaskDetail, String> {
     project::get(&db, project_id, task_id)
 }
 
 #[tauri::command]
-pub fn create_task(db: State<'_, Db>, input: project::TaskInput) -> Result<project::TaskRow, String> {
+pub async fn create_task(db: State<'_, Db>, input: project::TaskInput) -> Result<project::TaskRow, String> {
     project::create(&db, &input)
 }
 
 #[tauri::command]
-pub fn update_task(
+pub async fn update_task(
     db: State<'_, Db>,
     project_id: i64,
     task_id: i64,
@@ -68,27 +68,27 @@ pub fn update_task(
 }
 
 #[tauri::command]
-pub fn delete_task(db: State<'_, Db>, project_id: i64, task_id: i64) -> Result<(), String> {
+pub async fn delete_task(db: State<'_, Db>, project_id: i64, task_id: i64) -> Result<(), String> {
     project::delete(&db, project_id, task_id)
 }
 
 #[tauri::command]
-pub fn list_stages(db: State<'_, Db>, project_id: i64, task_id: i64) -> Result<Vec<stage::StageRow>, String> {
+pub async fn list_stages(db: State<'_, Db>, project_id: i64, task_id: i64) -> Result<Vec<stage::StageRow>, String> {
     stage::list(&db, project_id, task_id)
 }
 
 #[tauri::command]
-pub fn add_stage(db: State<'_, Db>, input: stage::StageInput) -> Result<stage::StageRow, String> {
+pub async fn add_stage(db: State<'_, Db>, input: stage::StageInput) -> Result<stage::StageRow, String> {
     stage::add(&db, &input)
 }
 
 #[tauri::command]
-pub fn delete_stage(db: State<'_, Db>, project_id: i64, task_id: i64, stage_id: i64) -> Result<(), String> {
+pub async fn delete_stage(db: State<'_, Db>, project_id: i64, task_id: i64, stage_id: i64) -> Result<(), String> {
     stage::delete(&db, project_id, task_id, stage_id)
 }
 
 #[tauri::command]
-pub fn update_stage(
+pub async fn update_stage(
     db: State<'_, Db>,
     project_id: i64,
     task_id: i64,
@@ -101,12 +101,12 @@ pub fn update_stage(
 /* ---------------- 统计 / 报告 ---------------- */
 
 #[tauri::command]
-pub fn get_summary(db: State<'_, Db>, period: String) -> Result<Summary, String> {
+pub async fn get_summary(db: State<'_, Db>, period: String) -> Result<Summary, String> {
     stats::summary(&db, &period)
 }
 
 #[tauri::command]
-pub fn generate_report(app: AppHandle, db: State<'_, Db>, period: String) -> Result<ReportResult, String> {
+pub async fn generate_report(app: AppHandle, db: State<'_, Db>, period: String) -> Result<ReportResult, String> {
     report::generate(&app, &db, &period)
 }
 
@@ -121,7 +121,7 @@ pub async fn ai_rewrite_report(
 }
 
 #[tauri::command]
-pub fn reset_report_config(app: AppHandle, kind: String) -> Result<(), String> {
+pub async fn reset_report_config(app: AppHandle, kind: String) -> Result<(), String> {
     let kind = if kind == "skill" { "skill" } else { "template" };
     config::reset_report_file(&app, kind)
 }
@@ -156,12 +156,12 @@ pub fn keep_working(app: AppHandle) -> Result<(), String> {
 /* ---------------- 配置 ---------------- */
 
 #[tauri::command]
-pub fn get_config(app: AppHandle) -> Result<Config, String> {
+pub async fn get_config(app: AppHandle) -> Result<Config, String> {
     Ok(config::load(&app))
 }
 
 #[tauri::command]
-pub fn save_config(app: AppHandle, cfg: Config) -> Result<(), String> {
+pub async fn save_config(app: AppHandle, cfg: Config) -> Result<(), String> {
     config::save(&app, &cfg)
 }
 

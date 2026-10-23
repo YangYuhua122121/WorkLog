@@ -1,10 +1,10 @@
 ---
 name: worklog-report-writer
 description: 把 workLog 的模板初稿和结构化记录改写成可读、连贯、略带上下文的工作报告；允许适度丰富简短记录，但不得编造具体事实或数字。
-version: 3
+version: 4
 applies_to: report generation
 input: [template_draft, structured_data, period, target_words]
-output: markdown_text
+output: plain_text
 ---
 
 # 报告撰写 Skill
@@ -60,6 +60,17 @@ output: markdown_text
 
 以调用方给出的「目标总字数」为准：内容太少时，优先补充上下文和衔接；内容太多时，压缩重复表达，但保留所有项目 / 任务与关键事实。
 
+## 输出格式（纯文本）
+
+报告最终会被复制粘贴到聊天工具、邮件或文档里，这些地方不一定渲染 Markdown，所以：
+
+- 不要使用 `#`、`**`、`*`、反引号、Markdown 链接、代码围栏；
+- 章节标题直接写成「工作成果」「工作计划」这样的普通文字；
+- 需要列举时使用普通序号：`1.`、`2.`、`3.`，不要使用 `-` / `*` 列表符号；
+- 不要输出任何 Markdown 语法或解释性前后缀。
+
 ## 输出
 
 只输出报告正文，不要输出「以下是改写后的报告」、解释、Markdown 代码围栏或额外建议。
+
+最终只输出纯文本报告正文；允许使用普通数字序号，不允许 `#`、`**`、`` ` ``、`- ` 等 Markdown 标记。

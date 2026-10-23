@@ -1340,7 +1340,7 @@ function renderGantt(s) {
     if (!row) return;
     const day = bar.dataset.d != null ? row.dayTasks?.[+bar.dataset.d] : null;
     const task = bar.dataset.t != null ? row.tasks[+bar.dataset.t] : null;
-    bar.addEventListener('mouseenter', ev => {
+    const show = ev => {
       let htmlTip;
       if (day) {
         const rows = day.tasks.map(t =>
@@ -1356,9 +1356,31 @@ function renderGantt(s) {
         return;
       }
       showHoverCard(htmlTip, ev);
-    });
+    };
+    bar.__showTip = show;
+    bar.addEventListener('mouseenter', show);
     bar.addEventListener('mousemove', moveHoverCard);
     bar.addEventListener('mouseleave', hideHoverCard);
+  });
+
+  // 时间条很窄时，鼠标可能落在条与条之间的缝隙；整行轨道补一层就近命中，
+  // 避免必须点一下（或精确压到条上）才弹悬浮窗。
+  box.querySelectorAll('.gantt__track').forEach(track => {
+    track.addEventListener('mousemove', ev => {
+      if (ev.target.closest('.gantt__bar')) return;
+      const x = ev.clientX;
+      let hit = null;
+      track.querySelectorAll('.gantt__bar').forEach(bar => {
+        const r = bar.getBoundingClientRect();
+        if (!hit && x >= r.left - 6 && x <= r.right + 6) hit = bar;
+      });
+      if (hit && hit.__showTip) {
+        hit.dispatchEvent(new MouseEvent('mouseenter', {
+          bubbles: true, clientX: ev.clientX, clientY: ev.clientY,
+        }));
+      }
+    });
+    track.addEventListener('mouseleave', hideHoverCard);
   });
 }
 function pieColors() {

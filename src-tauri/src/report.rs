@@ -414,7 +414,7 @@ pub async fn ai_rewrite(
 
     let target_words = cfg.report.ai_word_count.clamp(100, 3000);
     let user = format!(
-        "【周期】\n{}\n\n【目标总字数】约 {} 字\n\n【模板初稿】\n{}\n\n【结构化数据】\n{}\n\n要求：不要在报告中列出某个任务花了多少时间；可以保留周期总时长。请按 Skill 的要求输出改写后的报告正文，不要输出任何解释。",
+        "【周期】\n{}\n\n【目标总字数】约 {} 字\n\n【模板初稿】\n{}\n\n【结构化数据】\n{}\n\n要求：不要在报告中列出某个任务花了多少时间；可以保留周期总时长。输出必须是纯文本，不要使用 #、**、反引号、Markdown 链接或 - 列表符号；需要列举时用普通数字序号。请按 Skill 的要求输出改写后的报告正文，不要输出任何解释。",
         period.label,
         target_words,
         draft,
