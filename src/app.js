@@ -231,6 +231,7 @@ async function startTimer() {
   catch (err) { hint(String(err)); return; }
   state.seconds = 0;
   setClipTiming(d);
+  if (state.boardOpen) closeBoardNow();
 }
 async function stopTimer(manual = true) {
   if (!state.timerRunning) return;
@@ -348,6 +349,15 @@ $$('thead th[data-filter]').forEach(th => {
     if (guardModal()) return;
     if (hdrMenu.classList.contains('open')) { closeHeaderMenu(); return; }
     openHeaderMenu(th, th.dataset.filter);
+  });
+  // 双击字段栏：取消该字段筛选（等价于选“全部”）
+  th.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    if (guardModal()) return;
+    const def = FILTER_DEFS[th.dataset.filter];
+    state[def.state] = '全部';
+    closeHeaderMenu();
+    renderTable();
   });
 });
 $('thead th[data-sort="ddl"]').addEventListener('click', e => {
@@ -1271,15 +1281,8 @@ function renderGantt(s) {
     box.innerHTML = '<div class="chart-empty">本周期暂无工时记录</div>';
     return;
   }
-  // 日报：每个任务单独一行，避免一个项目行里堆多个任务条 / 悬浮窗出现多个任务
-  const rows = s.axis.unit === '日'
-    ? s.rows
-    : s.rows.flatMap(row => row.tasks.map(task => ({
-        ...row,
-        projectName: row.projectName + ' · ' + task.name,
-        tasks: [task],
-        dayTasks: [],
-      })));
+  // 日报：项目一行，任务-阶段各自一条；周 / 月：项目一行，按天聚合
+  const rows = s.rows;
   const n = s.axis.ticks.length;
   let html = '<div class="gantt"><div class="gantt__head"><div class="gantt__lab"></div><div class="gantt__axis">';
   s.axis.ticks.forEach((t, i) => {
@@ -1346,8 +1349,9 @@ function renderGantt(s) {
         htmlTip = `<div class="hovercard__h">${esc(row.projectName)} · ${esc(day.date)}</div>${rows}
           <div class="hovercard__row hovercard__total"><span class="hovercard__k">合计</span><span class="hovercard__v">${esc(day.durationText)}</span></div>`;
       } else if (task) {
+        const stage = task.stageNo != null ? ` · 阶段 ${task.stageNo}` : '';
         htmlTip = `<div class="hovercard__h">${esc(row.projectName)}</div>
-          <div class="hovercard__row"><span class="hovercard__n">${esc(task.name)}</span><span class="hovercard__v">${esc(task.durationText)}</span></div>`;
+          <div class="hovercard__row"><span class="hovercard__n">${esc(task.name + stage)}</span><span class="hovercard__v">${esc(task.durationText)}</span></div>`;
       } else {
         return;
       }
@@ -1463,6 +1467,7 @@ async function loadSummary() {
     state.lastSummary = s;
     state.summaryStale = false;
     renderSummary(s);
+    initExportPanel(s);
     await loadReport(seq);
   } catch (err) {
     if (seq !== summarySeq) return;
@@ -1470,6 +1475,35 @@ async function loadSummary() {
     $('#gantt').innerHTML = '<div class="chart-empty">统计加载失败</div>';
   }
 }
+function initExportPanel(summary) {
+  const start = $('#expStart'), end = $('#expEnd'), sel = $('#expProject');
+  if (!start || !end || !sel) return;
+  const p = summary?.period;
+  if (!start.value && p?.startDate) start.value = p.startDate;
+  if (!end.value && p?.endDate) end.value = p.endDate;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部项目</option>' + projectNames()
+    .map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+async function runExport(format) {
+  const start = $('#expStart').value, end = $('#expEnd').value;
+  if (!start || !end) { toast('请选择开始和结束日期'); return; }
+  if (start > end) { toast('开始日期不能晚于结束日期'); return; }
+  const btn = format === 'xlsx' ? $('#expXlsx') : $('#expCsv');
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = '导出中…';
+  try {
+    const path = await api.exportRecords(start, end, $('#expProject').value, format);
+    toast('已导出：' + path);
+  } catch (err) {
+    toast(String(err));
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+$('#expCsv')?.addEventListener('click', () => runExport('csv'));
+$('#expXlsx')?.addEventListener('click', () => runExport('xlsx'));
 $('#periodSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.classList.contains('active')) return;

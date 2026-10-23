@@ -77,11 +77,18 @@ fn source_of(tpl: &Template, alias: &str) -> String {
     tpl.fields
         .get(alias)
         .cloned()
-        .unwrap_or_else(|| alias.to_string())
+        .unwrap_or_else(|| format!("custom:{alias}"))
 }
 
 /// 一条记录的字段值；没有的字段返回 None
 fn record_value(rec: &ReportRecord, source: &str) -> Option<String> {
+    if let Some(key) = source.strip_prefix("custom:") {
+        let data: serde_json::Value = serde_json::from_str(&rec.custom_fields).ok()?;
+        return data.get(key).map(|v| match v {
+            serde_json::Value::String(s) => s.clone(),
+            _ => v.to_string(),
+        });
+    }
     let v = match source {
         "project_name" => rec.project_name.clone(),
         "task_name" => rec.task_name.clone(),
@@ -390,6 +397,16 @@ pub async fn ai_rewrite(
             "durationText": fmt_duration(r.duration),
             "priority": r.priority,
             "dueDate": r.due_date,
+            "taskStatus": r.task_status,
+            "stageStatus": r.stage_status,
+            "remark": r.remark,
+            "customFields": serde_json::from_str::<serde_json::Value>(&r.custom_fields)
+                .unwrap_or_else(|_| serde_json::json!({})),
+            "projectId": r.project_id,
+            "taskId": r.task_id,
+            "stageId": r.stage_id,
+            "createdAt": r.created_at,
+            "updatedAt": r.updated_at,
             "startedAt": r.started_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             "endedAt": r.ended_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         })).collect::<Vec<_>>()
@@ -397,7 +414,7 @@ pub async fn ai_rewrite(
 
     let target_words = cfg.report.ai_word_count.clamp(100, 3000);
     let user = format!(
-        "【周期】\n{}\n\n【目标总字数】约 {} 字\n\n【模板初稿】\n{}\n\n【结构化数据】\n{}\n\n请按 Skill 的要求输出改写后的报告正文，不要输出任何解释。",
+        "【周期】\n{}\n\n【目标总字数】约 {} 字\n\n【模板初稿】\n{}\n\n【结构化数据】\n{}\n\n要求：不要在报告中列出某个任务花了多少时间；可以保留周期总时长。请按 Skill 的要求输出改写后的报告正文，不要输出任何解释。",
         period.label,
         target_words,
         draft,
@@ -482,6 +499,12 @@ mod tests {
             next_goal: next.into(),
             priority: "中".into(),
             due_date: String::new(),
+            task_status: "未完成".into(),
+            stage_status: "未完成".into(),
+            remark: String::new(),
+            custom_fields: "{}".into(),
+            created_at: "2026-10-20 09:00:00".into(),
+            updated_at: "2026-10-20 09:00:00".into(),
         }
     }
 

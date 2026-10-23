@@ -5,7 +5,7 @@
 use crate::db::{with_conn, Db};
 use chrono::{Datelike, Duration as ChronoDuration, Local, NaiveDate, NaiveDateTime, Timelike};
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 /// 一个统计周期
 #[derive(Clone, Debug, Serialize)]
@@ -113,6 +113,12 @@ pub struct ReportRecord {
     pub next_goal: String,
     pub priority: String,
     pub due_date: String,
+    pub task_status: String,
+    pub stage_status: String,
+    pub remark: String,
+    pub custom_fields: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 /// 读取周期内的阶段明细（按结束时间归属周期）
@@ -136,7 +142,9 @@ fn records_from_conn(
                 "SELECT p.project_id, p.task_id, p.project_name, COALESCE(p.task_name,''),
                         s.stage_id, s.started_at, s.ended_at, COALESCE(s.duration, 0),
                         COALESCE(s.result,''), COALESCE(s.next_goal,''),
-                        p.priority, COALESCE(p.due_date,'')
+                        p.priority, COALESCE(p.due_date,''),
+                        p.status, COALESCE(p.remark,''), COALESCE(p.custom_fields,'{}'),
+                        p.created_at, p.updated_at, COALESCE(s.status,'')
                  FROM stage s
                  JOIN project_task p ON p.project_id = s.project_id AND p.task_id = s.task_id
                  WHERE s.ended_at IS NOT NULL AND s.ended_at >= ?1 AND s.ended_at < ?2
@@ -172,6 +180,12 @@ fn records_from_conn(
                     next_goal: r.get(9)?,
                     priority: r.get(10)?,
                     due_date: r.get(11)?,
+                    task_status: r.get(12)?,
+                    remark: r.get(13)?,
+                    custom_fields: r.get(14)?,
+                    created_at: r.get(15)?,
+                    updated_at: r.get(16)?,
+                    stage_status: r.get(17)?,
                 })
             })
             .map_err(|e| e.to_string())?
@@ -207,6 +221,8 @@ pub struct Axis {
 #[serde(rename_all = "camelCase")]
 pub struct GanttTask {
     pub name: String,
+    /// 日报中一条计时记录对应一个阶段；周 / 月为 None
+    pub stage_no: Option<i64>,
     pub start: f64,
     pub end: f64,
     pub duration: i64,
@@ -468,28 +484,53 @@ fn build_summary(period: &PeriodInfo, recs: &[ReportRecord]) -> Result<Summary, 
                 });
             }
         }
-        let tasks: Vec<GanttTask> = aggs
-            .iter()
-            .map(|a| {
-                // 同一时刻开始 / 结束的窄条给一个最小可见宽度
-                let end = if a.end - a.start < axis.span * 0.012 {
-                    a.start + axis.span * 0.012
-                } else {
-                    a.end
-                };
-                GanttTask {
-                    name: if a.task_name.is_empty() {
-                        "（未命名任务）".into()
+        let tasks: Vec<GanttTask> = if daily {
+            // 日报：每个「任务-阶段」一条独立的时间条，但项目仍占一行；
+            // 同一任务的不同阶段不会合并成一条。
+            let mut list: Vec<GanttTask> = recs
+                .iter()
+                .filter(|r| r.project_id == project_id)
+                .map(|r| {
+                    let (s, e) = axis_range(r, &start_date, true);
+                    GanttTask {
+                        name: if r.task_name.is_empty() {
+                            "（未命名任务）".into()
+                        } else {
+                            r.task_name.clone()
+                        },
+                        stage_no: Some(r.stage_id),
+                        start: s,
+                        end: e.min(axis.min + axis.span),
+                        duration: r.duration,
+                        duration_text: fmt_duration(r.duration),
+                    }
+                })
+                .collect();
+            list.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap_or(std::cmp::Ordering::Equal));
+            list
+        } else {
+            aggs.iter()
+                .map(|a| {
+                    let end = if a.end - a.start < axis.span * 0.012 {
+                        a.start + axis.span * 0.012
                     } else {
-                        a.task_name.clone()
-                    },
-                    start: a.start,
-                    end: end.min(axis.min + axis.span),
-                    duration: a.duration,
-                    duration_text: fmt_duration(a.duration),
-                }
-            })
-            .collect();
+                        a.end
+                    };
+                    GanttTask {
+                        name: if a.task_name.is_empty() {
+                            "（未命名任务）".into()
+                        } else {
+                            a.task_name.clone()
+                        },
+                        stage_no: None,
+                        start: a.start,
+                        end: end.min(axis.min + axis.span),
+                        duration: a.duration,
+                        duration_text: fmt_duration(a.duration),
+                    }
+                })
+                .collect()
+        };
         let proj_total: i64 = aggs.iter().map(|a| a.duration).sum();
         let pct = if total_duration > 0 {
             proj_total as f64 / total_duration as f64 * 100.0
@@ -529,7 +570,11 @@ fn build_summary(period: &PeriodInfo, recs: &[ReportRecord]) -> Result<Summary, 
         });
     }
 
-    let task_count: usize = rows.iter().map(|r| r.tasks.len()).sum();
+    let task_count = recs
+        .iter()
+        .map(|r| (r.project_id, r.task_id))
+        .collect::<HashSet<_>>()
+        .len();
     Ok(Summary {
         period: period.clone(),
         axis,
@@ -694,6 +739,12 @@ mod tests {
                 next_goal: "y".into(),
                 priority: "高".into(),
                 due_date: String::new(),
+                task_status: "未完成".into(),
+                stage_status: "未完成".into(),
+                remark: String::new(),
+                custom_fields: "{}".into(),
+                created_at: "2026-10-20 09:00:00".into(),
+                updated_at: "2026-10-20 09:00:00".into(),
             },
             ReportRecord {
                 project_id: 1,
@@ -708,13 +759,22 @@ mod tests {
                 next_goal: "y".into(),
                 priority: "高".into(),
                 due_date: String::new(),
+                task_status: "未完成".into(),
+                stage_status: "未完成".into(),
+                remark: String::new(),
+                custom_fields: "{}".into(),
+                created_at: "2026-10-20 09:00:00".into(),
+                updated_at: "2026-10-20 09:00:00".into(),
             },
         ];
         let s = build_summary(&period, &recs).unwrap();
         assert_eq!(s.rows.len(), 1);
+        assert_eq!(s.rows[0].tasks.len(), 2, "每个阶段一条独立时间条");
         assert_eq!(s.rows[0].tasks[0].start, 9.0);
-        assert_eq!(s.rows[0].tasks[0].end, 14.0);
-        assert_eq!(s.rows[0].tasks[0].duration, 12600);
+        assert_eq!(s.rows[0].tasks[0].end, 11.5);
+        assert_eq!(s.rows[0].tasks[1].start, 13.0);
+        assert_eq!(s.rows[0].tasks[1].end, 14.0);
+        assert_eq!(s.rows[0].tasks[0].duration, 9000);
         assert_eq!(s.total_duration, 12600);
         assert_eq!(s.project_count, 1);
     }
@@ -744,6 +804,12 @@ mod tests {
                 next_goal: "y".into(),
                 priority: "中".into(),
                 due_date: String::new(),
+                task_status: "未完成".into(),
+                stage_status: "未完成".into(),
+                remark: String::new(),
+                custom_fields: "{}".into(),
+                created_at: "2026-10-20 09:00:00".into(),
+                updated_at: "2026-10-20 09:00:00".into(),
             });
         }
         let summary = build_summary(&period, &recs).unwrap();

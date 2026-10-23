@@ -438,8 +438,9 @@ pub(crate) fn animate_board_region(app: AppHandle, reveal: bool, hide_after: boo
             return;
         }
         if hide_after {
-            set_board_region(&app, None);
+            // 先隐藏窗口，再恢复完整 region；否则隐藏前会闪一帧完整面板
             let _ = board.hide();
+            set_board_region(&app, None);
         } else {
             set_board_region(&app, None);
             let _ = sync_board_position(&app);
@@ -846,6 +847,7 @@ pub fn run() {
             commands::open_config_file,
             commands::app_info,
             export::export_tasks,
+            export::export_records,
             export::open_data_dir,
         ])
         .run(tauri::generate_context!())

@@ -33,7 +33,7 @@
       </div>
 
       <div class="tabs">
-        <button class="tab active" data-tab="task">任务</button>
+        <button class="tab active" data-tab="task">待办</button>
         <button class="tab" data-tab="summary">汇总</button>
       </div>
 
@@ -101,6 +101,20 @@
               </div>
               <div class="note" id="reportNote" style="margin-top:7px">默认按固定模板生成；配置 API 后可点「AI 增强」重写，点右上角图标复制文本。</div>
             </div>
+
+            <div class="s-card">
+              <h3>导出数据库数据</h3>
+              <div class="field-grid">
+                <div class="fld"><label>开始日期</label><input type="date" id="expStart"></div>
+                <div class="fld"><label>结束日期</label><input type="date" id="expEnd"></div>
+                <div class="fld full"><label>项目名</label><select id="expProject"><option value="">全部项目</option></select></div>
+                <div class="fld full"><div style="display:flex; gap:8px">
+                  <button class="btn" id="expCsv" type="button" style="flex:1">导出 CSV</button>
+                  <button class="btn" id="expXlsx" type="button" style="flex:1">导出 Excel</button>
+                </div></div>
+              </div>
+              <div class="note" id="expNote" style="margin-top:6px">项目-任务 LEFT JOIN 阶段记录；按阶段结束日期筛选，包含全部字段。</div>
+            </div>
           </div>
         </div>
 
@@ -123,7 +137,7 @@
                   </div>
                 </div>
                 <div class="fld"><label>任务名</label><input type="text" id="dTask"></div>
-                <div class="fld"><label>截止日期</label><input type="date" id="dDDL"></div>
+                <div class="fld"><label>截止日期（选填）</label><input type="date" id="dDDL"></div>
                 <div class="fld"><label>优先级 *</label>
                   <div class="tri" id="dPri">
                     <button data-v="高">高</button><button data-v="中">中</button><button data-v="低">低</button>
@@ -182,7 +196,7 @@
                   </div>
                 </div>
                 <div class="fld"><label>任务名 *</label><input type="text" id="nTask" placeholder="如：轨迹数据处理"></div>
-                <div class="fld"><label>截止日期</label><input type="date" id="nDDL"></div>
+                <div class="fld"><label>截止日期（选填）</label><input type="date" id="nDDL"></div>
                 <div class="fld"><label>优先级 *</label>
                   <div class="tri" id="nPri"><button data-v="高">高</button><button data-v="中" class="active">中</button><button data-v="低">低</button></div>
                 </div>
@@ -321,7 +335,6 @@
             </div>
           </div>
           <div class="sheet__foot">
-            <span class="note">工作时间之外的连续计时会触发提醒</span>
             <button class="btn btn--save" id="setSave">保存设置</button>
           </div>
         </div>

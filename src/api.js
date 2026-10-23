@@ -398,6 +398,10 @@ export const api = {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     return '浏览器下载';
   },
+  async exportRecords(start, end, project, format) {
+    if (isDesktop) return invoke('export_records', { start, end, project, format });
+    throw new Error('浏览器预览下没有本地数据库');
+  },
   async openDataDir() {
     if (isDesktop) { await invoke('open_data_dir'); return; }
     throw new Error('浏览器预览下没有本地数据库');

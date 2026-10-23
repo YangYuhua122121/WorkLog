@@ -561,7 +561,7 @@
   .report-box{
     position:relative;border-radius:8px;background:var(--well);
     padding:12px 36px 12px 12px;font-size:0.719rem;line-height:1.8;
-    height:150px;overflow:auto;color:var(--t2);
+    min-height:150px;height:auto;overflow:visible;color:var(--t2);
   }
   .report-box b{color:var(--t1);font-weight:600;font-size:0.75rem;}
   .copy-ic{

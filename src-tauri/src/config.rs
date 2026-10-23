@@ -212,6 +212,9 @@ pub fn init(app: &AppHandle) -> Result<(), String> {
             let _ = fs::write(&target, content);
         }
     }
+    let existing_cfg = load(app);
+    let _ = sync_custom_field_mappings(app, &existing_cfg.custom_fields);
+
     // 旧版默认 Skill 过于僵化（禁止任何扩写），升级时替换成新版；
     // 用户自己改过的 Skill 不会命中这个特征，保持不动。
     let skill = cfg_sub.join("report-skill.md");
@@ -238,5 +241,44 @@ pub fn load(app: &AppHandle) -> Config {
 pub fn save(app: &AppHandle, cfg: &Config) -> Result<(), String> {
     let file = config_file(app)?;
     let text = toml::to_string_pretty(cfg).map_err(|e| e.to_string())?;
-    fs::write(&file, text).map_err(|e| format!("写配置失败：{e}"))
+    fs::write(&file, text).map_err(|e| format!("写配置失败：{e}"))?;
+    // 新增自定义字段时，同步补到固定模板的「字段对照」里
+    let _ = sync_custom_field_mappings(app, &cfg.custom_fields);
+    Ok(())
+}
+
+/// 把自定义字段追加到 report-template.yaml 的字段对照中（保留原注释和已有映射）。
+fn sync_custom_field_mappings(app: &AppHandle, fields: &[String]) -> Result<(), String> {
+    if fields.is_empty() {
+        return Ok(());
+    }
+    let path = report_file(app, "template")?;
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Ok(());
+    };
+    let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
+    let Some(pos) = lines
+        .iter()
+        .position(|l| l.trim_start().starts_with("字段对照:"))
+    else {
+        return Ok(());
+    };
+    let mut additions = Vec::new();
+    for field in fields {
+        let key = serde_json::to_string(field).unwrap_or_else(|_| format!(r#""{}""#, field));
+        let val = serde_json::to_string(&format!("custom:{field}")).unwrap_or_else(|_| format!(r#""custom:{}""#, field));
+        let exists = lines.iter().skip(pos + 1).any(|l| {
+            let t = l.trim_start();
+            t.starts_with(&format!("{field}:")) || t.starts_with(&format!("{key}:"))
+        });
+        if !exists {
+            additions.push(format!("  {key}: {val}"));
+        }
+    }
+    if additions.is_empty() {
+        return Ok(());
+    }
+    lines.splice(pos + 1..pos + 1, additions);
+    fs::write(&path, lines.join("\n") + "\n")
+        .map_err(|e| format!("写入模板字段映射失败：{e}"))
 }
