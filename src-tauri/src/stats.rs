@@ -31,7 +31,7 @@ impl PeriodInfo {
     }
 }
 
-/// 解析周期关键字：当日 / 本周 / 本月 / 上周 / 上月
+/// 解析周期关键字：当日 / 昨日 / 本周 / 本月 / 上周 / 上月
 pub fn resolve_period(key: &str) -> PeriodInfo {
     let today = Local::now().date_naive();
     let monday = today - ChronoDuration::days(today.weekday().num_days_from_monday() as i64);
@@ -50,6 +50,12 @@ pub fn resolve_period(key: &str) -> PeriodInfo {
     .unwrap_or(today);
 
     let (start, end_ex, label, doc) = match key {
+        "昨日" => (
+            today - ChronoDuration::days(1),
+            today,
+            format!("{}", today - ChronoDuration::days(1)),
+            "日报",
+        ),
         "本周" => (
             monday,
             monday + ChronoDuration::days(7),
@@ -329,7 +335,7 @@ pub fn summary(db: &Db, key: &str) -> Result<Summary, String> {
 fn build_summary(period: &PeriodInfo, recs: &[ReportRecord]) -> Result<Summary, String> {
     let daily = period.doc_kind == "日报";
     let start_date = period.start();
-    let unit = if daily { "分" } else { "日" };
+    let unit = if daily { "时" } else { "日" };
 
     // 每行一个项目-任务；同一任务的多段计时合并成一条（取最早开始 / 最晚结束，时长累加）
     let mut by_task: BTreeMap<(i64, i64), Agg> = BTreeMap::new();
@@ -355,7 +361,7 @@ fn build_summary(period: &PeriodInfo, recs: &[ReportRecord]) -> Result<Summary, 
     // 甘特横轴
     let (mut axis_min, mut axis_span) = if daily {
         if recs.is_empty() {
-            (0.0, 1440.0)
+            (0.0, 24.0)
         } else {
             let lo = recs
                 .iter()
@@ -366,17 +372,13 @@ fn build_summary(period: &PeriodInfo, recs: &[ReportRecord]) -> Result<Summary, 
                 .map(|r| axis_range(r, &start_date, true).1)
                 .fold(f64::NEG_INFINITY, f64::max);
             let lo = lo.max(0.0).floor();
-            let hi = hi.min(1440.0).max(lo + 15.0).ceil();
+            let hi = hi.min(24.0).max(lo + 0.5).ceil();
             (lo, hi - lo)
         }
     } else {
         (0.0, period.end().signed_duration_since(start_date).num_days() as f64 + 1.0)
     };
-    if daily {
-        if axis_span < 15.0 {
-            axis_span = 15.0;
-        }
-    } else if axis_span < 0.5 {
+    if axis_span < 0.5 {
         axis_span = 0.5;
     }
     if !daily {
@@ -544,20 +546,20 @@ fn build_summary(period: &PeriodInfo, recs: &[ReportRecord]) -> Result<Summary, 
 /// 记录在横轴上的位置
 fn axis_range(r: &ReportRecord, start_date: &NaiveDate, daily: bool) -> (f64, f64) {
     if daily {
-        // 日报按「分钟」为横轴单位，时间条不再被整点取整
+        // 横轴单位是小时，但 start/end 保留到秒，任务条本身是分钟级位置
         let secs_s = r.started_at.num_seconds_from_midnight() as f64;
         let secs_e = r.ended_at.num_seconds_from_midnight() as f64;
-        let mut s = secs_s / 60.0;
-        let mut e = secs_e / 60.0;
+        let mut s = secs_s / 3600.0;
+        let mut e = secs_e / 3600.0;
         // 跨天计时按当天边界裁剪
         if r.started_at.date() < *start_date {
             s = 0.0;
         }
         if r.ended_at.date() > *start_date {
-            e = 1440.0;
+            e = 24.0;
         }
         if e <= s {
-            e = (s + r.duration as f64 / 60.0).min(1440.0).max(s + 1.0);
+            e = (s + r.duration as f64 / 3600.0).min(24.0).max(s + 0.02);
         }
         (s, e)
     } else {
@@ -578,16 +580,8 @@ fn axis_range(r: &ReportRecord, start_date: &NaiveDate, daily: bool) -> (f64, f6
 }
 
 fn daily_axis(min: f64, span: f64) -> (Vec<f64>, Vec<String>, Vec<f64>) {
-    // 全部以分钟为单位：短时间段用 5/15 分钟刻度，长时间段用 30/60 分钟刻度
-    let step = if span <= 30.0 {
-        5.0
-    } else if span <= 120.0 {
-        15.0
-    } else if span <= 480.0 {
-        30.0
-    } else {
-        60.0
-    };
+    // 小时刻度；任务条自身仍按秒 / 分钟定位
+    let step = (span / 4.0).ceil().max(1.0);
     let mut ticks = vec![min];
     let mut v = (min / step).ceil() * step;
     while v < min + span - 0.01 {
@@ -601,20 +595,15 @@ fn daily_axis(min: f64, span: f64) -> (Vec<f64>, Vec<String>, Vec<f64>) {
     let labels = ticks
         .iter()
         .map(|v| {
-            let total = v.round() as i64;
-            let h = (total / 60).min(24);
-            let m = (total % 60).min(59);
-            format!("{h:02}:{m:02}")
+            let h = v.floor() as i64;
+            let m = ((v - h as f64) * 60.0).round() as i64;
+            let m = m.min(59);
+            format!("{:02}:{:02}", h.min(24), m)
         })
         .collect();
-    let grid_step = if span <= 120.0 { step } else { 30.0 };
-    let mut grid = Vec::new();
-    let start = (min / grid_step).ceil() * grid_step;
-    let mut g = start;
-    while g <= min + span + 0.01 {
-        grid.push(g);
-        g += grid_step;
-    }
+    let grid = (min.ceil() as i64..=(min + span).floor() as i64)
+        .map(|h| h as f64)
+        .collect();
     (ticks, labels, grid)
 }
 
@@ -723,8 +712,8 @@ mod tests {
         ];
         let s = build_summary(&period, &recs).unwrap();
         assert_eq!(s.rows.len(), 1);
-        assert_eq!(s.rows[0].tasks[0].start, 540.0);
-        assert_eq!(s.rows[0].tasks[0].end, 840.0);
+        assert_eq!(s.rows[0].tasks[0].start, 9.0);
+        assert_eq!(s.rows[0].tasks[0].end, 14.0);
         assert_eq!(s.rows[0].tasks[0].duration, 12600);
         assert_eq!(s.total_duration, 12600);
         assert_eq!(s.project_count, 1);

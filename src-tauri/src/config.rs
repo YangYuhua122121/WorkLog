@@ -83,6 +83,9 @@ pub struct Report {
     pub template_file: String,
     #[serde(alias = "skill_file")]
     pub skill_file: String,
+    /// AI 增强报告的目标总字数（约）
+    #[serde(default = "default_ai_word_count", alias = "ai_word_count")]
+    pub ai_word_count: u32,
 }
 
 impl Default for Config {
@@ -124,11 +127,16 @@ impl Default for Reminder {
         }
     }
 }
+fn default_ai_word_count() -> u32 {
+    300
+}
+
 impl Default for Report {
     fn default() -> Self {
         Self {
             template_file: "config/report-template.yaml".into(),
             skill_file: "config/report-skill.md".into(),
+            ai_word_count: 300,
         }
     }
 }
@@ -202,6 +210,14 @@ pub fn init(app: &AppHandle) -> Result<(), String> {
         let target = cfg_sub.join(name);
         if !target.exists() {
             let _ = fs::write(&target, content);
+        }
+    }
+    // 旧版默认 Skill 过于僵化（禁止任何扩写），升级时替换成新版；
+    // 用户自己改过的 Skill 不会命中这个特征，保持不动。
+    let skill = cfg_sub.join("report-skill.md");
+    if let Ok(old) = fs::read_to_string(&skill) {
+        if old.contains("version: 2") && old.contains("初稿里的空值占位原样保留") {
+            let _ = fs::write(&skill, DEFAULT_SKILL);
         }
     }
     Ok(())

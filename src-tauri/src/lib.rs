@@ -76,6 +76,28 @@ fn claim_instance() {
     let _ = std::fs::write(path, std::process::id().to_string());
 }
 
+
+/// 把悬浮球拉回当前显示器可见区域，避免启动时 / 靠边时被裁掉底部
+pub(crate) fn clamp_clip_to_monitor(app: &AppHandle) {
+    let Some(clip) = app.get_webview_window("clip") else { return };
+    let (Ok(pos), Ok(size), Ok(Some(mon))) = (
+        clip.outer_position(),
+        clip.outer_size(),
+        clip.current_monitor(),
+    ) else {
+        return;
+    };
+    let left = mon.position().x;
+    let top = mon.position().y;
+    let right = left + mon.size().width as i32;
+    let bottom = top + mon.size().height as i32;
+    let x = pos.x.min(right - size.width as i32).max(left);
+    let y = pos.y.min(bottom - size.height as i32).max(top);
+    if x != pos.x || y != pos.y {
+        let _ = clip.set_position(PhysicalPosition::new(x, y));
+    }
+}
+
 /// 启动日志：Windows 下没有控制台，安装后打不开时用户可以把这份日志发回来。
 fn startup_log_path() -> PathBuf {
     let base = if cfg!(target_os = "windows") {
@@ -676,6 +698,12 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
 
+            // macOS：只做状态栏应用，不显示 Dock 图标 / 应用菜单
+            #[cfg(target_os = "macos")]
+            let _ = app
+                .handle()
+                .set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             // 单实例：在创建窗口 / 托盘之前就判断，重复启动直接退出
             if let Some(prev) = existing_instance_pid() {
                 startup_log(&format!("second instance detected (first pid {prev}), exiting"));
@@ -737,6 +765,7 @@ pub fn run() {
                     let _ = clip.set_position(PhysicalPosition::new(cfg.window.x, cfg.window.y));
                 }
             }
+            clamp_clip_to_monitor(&handle);
             let _ = sync_board_position(&handle);
             // 挂成 child window 会让隐藏的主面板变成可显示状态，这里重新收回
             if let Some(board) = app.get_webview_window("board") {

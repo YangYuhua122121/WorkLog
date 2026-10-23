@@ -67,6 +67,7 @@
                 <button data-p="当日" class="active">当日</button>
                 <button data-p="本周">本周</button>
                 <button data-p="本月">本月</button>
+                <button data-p="昨日">昨日</button>
                 <button data-p="上周">上周</button>
                 <button data-p="上月">上月</button>
               </div>
@@ -85,7 +86,10 @@
             <div class="s-card">
               <div class="report-head">
                 <h3>报告生成</h3>
-                <button class="btn" id="aiBtn">AI 增强</button>
+                <div style="display:flex; gap:6px">
+                  <button class="btn" id="templateBtn" type="button">恢复为固定模板</button>
+                  <button class="btn" id="aiBtn">AI 增强</button>
+                </div>
               </div>
               <div class="report-box" id="reportBox">
                 <button class="copy-ic" id="copyBtn" title="复制报告文本">
@@ -119,7 +123,7 @@
                   </div>
                 </div>
                 <div class="fld"><label>任务名</label><input type="text" id="dTask"></div>
-                <div class="fld"><label>截止日期（DDL）</label><input type="date" id="dDDL"></div>
+                <div class="fld"><label>截止日期</label><input type="date" id="dDDL"></div>
                 <div class="fld"><label>优先级 *</label>
                   <div class="tri" id="dPri">
                     <button data-v="高">高</button><button data-v="中">中</button><button data-v="低">低</button>
@@ -139,7 +143,7 @@
               </table>
 
               <div class="stage-detail">
-                <div class="meta-line"><span>阶段详情</span><span class="note">点选上方阶段查看 / 编辑</span></div>
+                <div class="meta-line"><span>阶段详情</span></div>
                 <div class="field-grid">
                   <div class="fld"><label>阶段号</label><div class="val" id="sdNo">—</div></div>
                   <div class="fld"><label>本次时长</label><div class="val" id="sdDur">—</div></div>
@@ -178,7 +182,7 @@
                   </div>
                 </div>
                 <div class="fld"><label>任务名 *</label><input type="text" id="nTask" placeholder="如：轨迹数据处理"></div>
-                <div class="fld"><label>截止日期（DDL）</label><input type="date" id="nDDL"></div>
+                <div class="fld"><label>截止日期</label><input type="date" id="nDDL"></div>
                 <div class="fld"><label>优先级 *</label>
                   <div class="tri" id="nPri"><button data-v="高">高</button><button data-v="中" class="active">中</button><button data-v="低">低</button></div>
                 </div>
@@ -281,6 +285,7 @@
                 <div class="fld full"><label>Base URL</label><input type="text" id="setBase" placeholder="https://api.openai.com/v1"></div>
                 <div class="fld full"><label>API Key（首版存本地配置文件）</label><input type="password" id="setKey" placeholder="sk-..."></div>
                 <div class="fld full"><label>模型名</label><input type="text" id="setModel" value="gpt-4o-mini"></div>
+                <div class="fld full"><label>AI 报告总字数（约）</label><input type="number" id="setAiWords" min="100" max="3000" step="50" value="300"></div>
               </div>
             </div>
 

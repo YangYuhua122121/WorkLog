@@ -273,8 +273,19 @@ pub fn resize_clip_window(app: AppHandle, width: f64, height: f64) -> Result<(),
     // 容易被系统按新宽度重新摆放，导致计时开始/停止时横向漂移。
     clip.set_size(tauri::LogicalSize::new(width, height))
         .map_err(|e| format!("调整悬浮球大小失败：{e}"))?;
-    let x = pos.x + (old.width as i32 - new_w) / 2;
-    clip.set_position(tauri::PhysicalPosition::new(x, pos.y))
+    let mut x = pos.x + (old.width as i32 - new_w) / 2;
+    let mut y = pos.y;
+    let new_h = (height * scale).round() as i32;
+    // 悬浮球靠近屏幕边缘时，变高后不要被屏幕裁掉底部
+    if let Ok(Some(mon)) = clip.current_monitor() {
+        let left = mon.position().x;
+        let top = mon.position().y;
+        let right = left + mon.size().width as i32;
+        let bottom = top + mon.size().height as i32;
+        x = x.min(right - new_w).max(left);
+        y = y.min(bottom - new_h).max(top);
+    }
+    clip.set_position(tauri::PhysicalPosition::new(x, y))
         .map_err(|e| format!("调整悬浮球位置失败：{e}"))?;
     crate::set_clip_size(&app, new_w.max(1) as u32, (height * scale).round() as u32);
     crate::sync_board_position(&app)?;

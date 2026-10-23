@@ -395,9 +395,11 @@ pub async fn ai_rewrite(
         })).collect::<Vec<_>>()
     });
 
+    let target_words = cfg.report.ai_word_count.clamp(100, 3000);
     let user = format!(
-        "【周期】\n{}\n\n【模板初稿】\n{}\n\n【结构化数据】\n{}\n\n请严格按 Skill 的约束与格式输出改写后的报告正文，不要输出任何解释。",
+        "【周期】\n{}\n\n【目标总字数】约 {} 字\n\n【模板初稿】\n{}\n\n【结构化数据】\n{}\n\n请按 Skill 的要求输出改写后的报告正文，不要输出任何解释。",
         period.label,
+        target_words,
         draft,
         serde_json::to_string_pretty(&structured).unwrap_or_default()
     );
@@ -417,7 +419,7 @@ pub async fn ai_rewrite(
                 content: user,
             },
         ],
-        temperature: 0.3,
+        temperature: 0.5,
     };
 
     let base = cfg.llm.base_url.trim().trim_end_matches('/');

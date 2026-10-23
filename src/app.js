@@ -614,7 +614,7 @@ function loadDetailForm(item) {
 }
 function renderDetailStages(item) {
   const body = $('#dStageBody');
-  $('#dStageCount').textContent = `共 ${item.stages.length} 段`;
+  $('#dStageCount').textContent = '点选记录在下方查看 / 编辑';
   if (!item.stages.length) {
     body.innerHTML = '<tr><td colspan="3" style="color:var(--t3);font-size:0.688rem;padding:8px 6px">暂无阶段记录（开始计时后自动生成）</td></tr>';
     return;
@@ -904,6 +904,7 @@ function fillSettingsForm() {
   $('#setBase').value = cfg.llm?.baseUrl || 'https://api.openai.com/v1';
   $('#setKey').value = cfg.llm?.apiKey || '';
   $('#setModel').value = cfg.llm?.model || 'gpt-4o-mini';
+  $('#setAiWords').value = cfg.report?.aiWordCount || 300;
   $('#setTemplatePath').value = state.appInfo?.templatePath || '（未加载）';
   $('#setSkillPath').value = state.appInfo?.skillPath || '（未加载）';
   renderFieldList();
@@ -934,6 +935,7 @@ $('#setSave').addEventListener('click', async () => {
     apiKey: $('#setKey').value.trim(),
     model: $('#setModel').value.trim() || 'gpt-4o-mini',
   };
+  cfg.report = { ...(state.config?.report || {}), aiWordCount: Math.min(3000, Math.max(100, parseInt($('#setAiWords').value, 10) || 300)) };
   cfg.appearance = { theme: state.themePref, fontSize: parseInt($('#fsRange').value, 10) || 16 };
   cfg.reminder = {
     workStart: start, workEnd: end,
@@ -1269,6 +1271,15 @@ function renderGantt(s) {
     box.innerHTML = '<div class="chart-empty">本周期暂无工时记录</div>';
     return;
   }
+  // 日报：每个任务单独一行，避免一个项目行里堆多个任务条 / 悬浮窗出现多个任务
+  const rows = s.axis.unit === '日'
+    ? s.rows
+    : s.rows.flatMap(row => row.tasks.map(task => ({
+        ...row,
+        projectName: row.projectName + ' · ' + task.name,
+        tasks: [task],
+        dayTasks: [],
+      })));
   const n = s.axis.ticks.length;
   let html = '<div class="gantt"><div class="gantt__head"><div class="gantt__lab"></div><div class="gantt__axis">';
   s.axis.ticks.forEach((t, i) => {
@@ -1279,7 +1290,7 @@ function renderGantt(s) {
   });
   html += '</div></div>';
   const shades = ['', 'sh-w1', 'sh-d1', 'sh-w2'];
-  s.rows.forEach((row, ri) => {
+  rows.forEach((row, ri) => {
     html += `<div class="gantt__row"><div class="gantt__rowlab" title="${esc(row.projectName)}">${esc(row.projectName)}</div><div class="gantt__track">`;
     s.axis.grid.forEach(g => {
       if (g < s.axis.min - 0.001 || g > s.axis.min + s.axis.span + 0.001) return;
@@ -1298,7 +1309,7 @@ function renderGantt(s) {
       /* 当日：仍按任务时间段画细条，但不显示任务名 */
       row.tasks.forEach((task, ti) => {
         const left = Math.max(0, Math.min(100, pctOf(task.start, s)));
-        // 日报横轴已改为分钟；短任务不要被 0.7% 强行撑成十分钟
+        // 日报横轴仍是小时刻度，但任务条按实际秒 / 分钟定位
         const width = Math.max(0.12, Math.min(100 - left, pctOf(task.end, s) - left));
         const cls = `pc${((row.colorIndex - 1) % AXIS_PC) + 1} ${shades[ti % shades.length]}`;
         html += `<div class="gantt__bar ${cls}" style="left:${left}%;width:${width}%" data-r="${ri}" data-t="${ti}"></div>`;
@@ -1322,7 +1333,7 @@ function renderGantt(s) {
   }
   /* 悬浮浮窗：周 / 月列出当天该项目各任务 + 时长；不显示起止时间 */
   box.querySelectorAll('.gantt__bar').forEach(bar => {
-    const row = s.rows[+bar.dataset.r];
+    const row = rows[+bar.dataset.r];
     if (!row) return;
     const day = bar.dataset.d != null ? row.dayTasks?.[+bar.dataset.d] : null;
     const task = bar.dataset.t != null ? row.tasks[+bar.dataset.t] : null;
@@ -1527,6 +1538,11 @@ $('#aiBtn').addEventListener('click', async () => {
     btn.textContent = old;
   }
 });
+$('#templateBtn').addEventListener('click', async () => {
+  if (state.aiBusy) return;
+  await loadReport();
+  toast('已恢复为固定模板');
+});
 $('#copyBtn').addEventListener('click', () => {
   const text = state.reportText || '';
   if (!text.trim()) { toast('报告为空'); return; }
@@ -1559,7 +1575,7 @@ function normalizeConfig(c) {
     llm: { baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini' },
     appearance: { theme: 'dark', fontSize: 16 },
     reminder: { workStart: '09:00', workEnd: '18:00', limitXMinutes: 60, stopYSeconds: 60 },
-    report: { templateFile: 'config/report-template.yaml', skillFile: 'config/report-skill.md' },
+    report: { templateFile: 'config/report-template.yaml', skillFile: 'config/report-skill.md', aiWordCount: 300 },
     window: { x: 0, y: 0, saved: false },
   };
   return {

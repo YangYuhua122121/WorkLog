@@ -24,9 +24,9 @@ const state = {
 };
 
 function pad(n) { return String(n).padStart(2, '0'); }
-function fmtHM(sec) {
-  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60);
-  return pad(h) + ':' + pad(m);
+function fmtHMS(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = Math.floor(sec % 60);
+  return pad(h) + ':' + pad(m) + ':' + pad(s);
 }
 let toastTimer = null;
 function toast(msg) {
@@ -55,7 +55,7 @@ if (mqLight.addEventListener) {
 }
 
 function renderTimer() {
-  $('#clipTimer').textContent = fmtHM(state.seconds);
+  $('#clipTimer').textContent = fmtHMS(state.seconds);
 }
 function render() {
   clip.classList.toggle('is-timing', state.running);
@@ -139,7 +139,7 @@ function measureTiming(proj, task) {
   if (row2) row2.style.transition = 'none';
   clone.querySelector('.clip__state').textContent = '工作中';
   clone.querySelector('.clip__task').textContent = proj + ' · ' + task;
-  clone.querySelector('.clip__timer').textContent = '00:00';
+  clone.querySelector('.clip__timer').textContent = '00:00:00';
   document.body.appendChild(clone);
   const c = targetOf(clone);
   clone.remove();
